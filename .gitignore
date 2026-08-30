@@ -1,0 +1,40 @@
+# Build directories
+build/
+bin/
+lib/
+out/
+.cache/
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.ninja
+.ninja_deps
+.ninja_log
+
+# Compiled binaries and libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.obj
+*.o
+
+# SQLite databases and test artifacts
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+test_*.db
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
