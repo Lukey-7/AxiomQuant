@@ -25,9 +25,9 @@ public:
     }
 
     void on_start(Portfolio& /*portfolio*/, const quant::data::MarketDataUniverse& universe) override {
-        const auto& series = universe.get_series(ticker_);
-        fast_sma_ = quant::indicators::SMA::calculate(series.close, fast_period_);
-        slow_sma_ = quant::indicators::SMA::calculate(series.close, slow_period_);
+        const auto closes = universe.get_aligned_closes(ticker_);
+        fast_sma_ = quant::indicators::SMA::calculate(closes, fast_period_);
+        slow_sma_ = quant::indicators::SMA::calculate(closes, slow_period_);
     }
 
     void on_bar(
@@ -36,7 +36,7 @@ public:
         const Portfolio& portfolio,
         std::vector<Order>& pending_orders
     ) override {
-        if (timeline_index == 0) return;
+        if (timeline_index == 0 || timeline_index >= fast_sma_.size()) return;
         if (!snapshot.has_ticker(ticker_)) return;
 
         double prev_fast = fast_sma_[timeline_index - 1];
