@@ -18,8 +18,10 @@ public:
 
     /**
      * @brief Process an executed Fill against the portfolio.
+     * @return Net PnL realized by the fill (0 for fills that open or add to a position).
+     *         The stored trade-history copy carries realized_pnl and closes_position.
      */
-    void process_fill(const Fill& fill);
+    double process_fill(const Fill& fill);
 
     /**
      * @brief Mark all positions to market using current snapshot prices and record equity history.

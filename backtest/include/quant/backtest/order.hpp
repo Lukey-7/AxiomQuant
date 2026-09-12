@@ -41,6 +41,8 @@ struct Fill {
     double commission{0.0};
     double slippage{0.0};
     double spread_cost{0.0};
+    double realized_pnl{0.0};   // Net PnL realized by this fill (populated by Portfolio)
+    bool closes_position{false};// True if this fill reduced / closed an existing position
     std::string date;
     int64_t timestamp{0};
 

@@ -28,12 +28,19 @@ public:
      * @return Generated Fill.
      */
     [[nodiscard]] Fill execute_order(const Order& order, const quant::data::Bar& bar) const {
+        return execute_order(order, bar, bar.close);
+    }
+
+    /**
+     * @brief Simulates execution at an explicit reference price (e.g. the bar open for next-bar fills).
+     */
+    [[nodiscard]] Fill execute_order(const Order& order, const quant::data::Bar& bar, double reference_price) const {
         Fill fill;
         fill.order_id = order.order_id;
         fill.ticker = order.ticker;
         fill.side = order.side;
         fill.quantity = order.quantity;
-        fill.price = bar.close; // Fill at current bar close or open
+        fill.price = reference_price;
         fill.date = bar.date;
         fill.timestamp = bar.timestamp;
 
