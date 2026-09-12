@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
+#include <limits>
 
 namespace quant::data {
 
@@ -104,11 +105,39 @@ const TimeSeries& MarketDataUniverse::get_series(const std::string& ticker) cons
     return it->second;
 }
 
-MarketSnapshot MarketDataUniverse::get_snapshot(size_t timeline_index) const {
+const MarketSnapshot& MarketDataUniverse::get_snapshot(size_t timeline_index) const {
     if (timeline_index >= snapshots_.size()) {
         throw std::out_of_range("Timeline index out of range in MarketDataUniverse");
     }
     return snapshots_[timeline_index];
+}
+
+MarketDataUniverse MarketDataUniverse::slice(size_t begin, size_t end) const {
+    end = std::min(end, snapshots_.size());
+    if (begin > end) {
+        throw std::out_of_range("MarketDataUniverse::slice: begin > end");
+    }
+    MarketDataUniverse out;
+    out.assets_ = assets_;
+    out.tickers_ = tickers_;
+    out.timeline_.assign(timeline_.begin() + static_cast<std::ptrdiff_t>(begin), timeline_.begin() + static_cast<std::ptrdiff_t>(end));
+    out.timestamps_.assign(timestamps_.begin() + static_cast<std::ptrdiff_t>(begin), timestamps_.begin() + static_cast<std::ptrdiff_t>(end));
+    out.snapshots_.assign(snapshots_.begin() + static_cast<std::ptrdiff_t>(begin), snapshots_.begin() + static_cast<std::ptrdiff_t>(end));
+    return out;
+}
+
+std::vector<double> MarketDataUniverse::get_aligned_closes(const std::string& ticker) const {
+    if (assets_.find(ticker) == assets_.end()) {
+        throw std::invalid_argument("Ticker not found in universe: " + ticker);
+    }
+    std::vector<double> closes(snapshots_.size(), std::numeric_limits<double>::quiet_NaN());
+    for (size_t t = 0; t < snapshots_.size(); ++t) {
+        auto it = snapshots_[t].bars.find(ticker);
+        if (it != snapshots_[t].bars.end()) {
+            closes[t] = it->second.close;
+        }
+    }
+    return closes;
 }
 
 std::vector<std::vector<double>> MarketDataUniverse::get_aligned_close_matrix() const {

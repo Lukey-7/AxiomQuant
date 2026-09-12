@@ -7,10 +7,10 @@ add_library(quant_optimization STATIC
 
 target_include_directories(quant_optimization PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${EIGEN3_INCLUDE_DIR}
 )
 
 target_link_libraries(quant_optimization PUBLIC
     quant_data
     quant_risk
+    axiom_eigen
 )

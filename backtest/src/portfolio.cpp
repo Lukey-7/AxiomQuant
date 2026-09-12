@@ -19,13 +19,16 @@ void Portfolio::reset(double initial_cash) {
     equity_curve_.clear();
 }
 
-void Portfolio::process_fill(const Fill& fill) {
+double Portfolio::process_fill(const Fill& input_fill) {
+    Fill fill = input_fill;
     if (positions_.find(fill.ticker) == positions_.end()) {
         positions_[fill.ticker] = Position(fill.ticker);
     }
 
     auto& pos = positions_[fill.ticker];
-    pos.update_with_fill(fill);
+    const bool is_buy = (fill.side == OrderSide::BUY);
+    fill.closes_position = pos.is_open() && (pos.is_long() != is_buy);
+    fill.realized_pnl = pos.update_with_fill(fill);
 
     // Cash flow adjustments
     if (fill.side == OrderSide::BUY) {
@@ -35,6 +38,7 @@ void Portfolio::process_fill(const Fill& fill) {
     }
 
     trade_history_.push_back(fill);
+    return fill.realized_pnl;
 }
 
 void Portfolio::mark_to_market(const quant::data::MarketSnapshot& snapshot) {

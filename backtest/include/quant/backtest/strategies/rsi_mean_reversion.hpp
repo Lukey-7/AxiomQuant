@@ -27,8 +27,7 @@ public:
     }
 
     void on_start(Portfolio& /*portfolio*/, const quant::data::MarketDataUniverse& universe) override {
-        const auto& series = universe.get_series(ticker_);
-        rsi_ = quant::indicators::RSI::calculate(series.close, period_);
+        rsi_ = quant::indicators::RSI::calculate(universe.get_aligned_closes(ticker_), period_);
     }
 
     void on_bar(
@@ -37,7 +36,7 @@ public:
         const Portfolio& portfolio,
         std::vector<Order>& pending_orders
     ) override {
-        if (!snapshot.has_ticker(ticker_)) return;
+        if (!snapshot.has_ticker(ticker_) || timeline_index >= rsi_.size()) return;
 
         double curr_rsi = rsi_[timeline_index];
         if (quant::indicators::is_nan(curr_rsi)) return;
