@@ -321,6 +321,14 @@ tests/        43 unit and regression tests
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ```
 
+## Further reading
+
+- **[RESEARCH.md](RESEARCH.md)** - do these strategies beat buy-and-hold out of sample after costs?
+- **[docs/STUDY_GUIDE.md](docs/STUDY_GUIDE.md)** - the concepts behind the engine (look-ahead bias,
+  cost models, Sharpe/Sortino/Calmar, VaR vs CVaR, Cornish-Fisher, GBM and Ito's correction,
+  Cholesky, bootstrapping, Markowitz, Ledoit-Wolf, FISTA and simplex projection, risk parity,
+  walk-forward), each with its formula and where it lives in the code.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
