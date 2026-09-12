@@ -37,51 +37,72 @@ Eigen::MatrixXd PortfolioStats::compute_sample_covariance(
 
 Eigen::MatrixXd PortfolioStats::compute_ledoit_wolf_covariance(
     const Eigen::MatrixXd& return_matrix,
-    double ann_factor
+    double ann_factor,
+    double* shrinkage_intensity
 ) {
-    const size_t T = return_matrix.rows();
-    const size_t N = return_matrix.cols();
+    const Eigen::Index T = return_matrix.rows();
+    const Eigen::Index N = return_matrix.cols();
     if (T < 2 || N == 0) {
         throw std::invalid_argument("Insufficient observations for Ledoit-Wolf estimation");
     }
+    const double dT = static_cast<double>(T);
 
-    Eigen::MatrixXd S = compute_sample_covariance(return_matrix, ann_factor);
+    // Centered returns and the (1/T-normalized) sample covariance used by the LW estimator.
+    const Eigen::RowVectorXd mean_daily = return_matrix.colwise().mean();
+    const Eigen::MatrixXd X = return_matrix.rowwise() - mean_daily;
+    const Eigen::MatrixXd S = (X.transpose() * X) / dT;
 
-    // Target F: Diagonal matrix with sample variances on diagonal
-    Eigen::MatrixXd F = Eigen::MatrixXd::Zero(N, N);
-    for (size_t i = 0; i < N; ++i) {
-        F(i, i) = S(i, i);
+    if (N == 1) {
+        if (shrinkage_intensity) *shrinkage_intensity = 0.0;
+        return S * ann_factor;
     }
 
-    // Centered observations
-    Eigen::VectorXd mean_daily = return_matrix.colwise().mean();
-    Eigen::MatrixXd centered = return_matrix.rowwise() - mean_daily.transpose();
+    const Eigen::VectorXd var = S.diagonal();
+    const Eigen::VectorXd sd = var.array().sqrt();
 
-    // Estimate variance of elements: sum Var(s_ij)
-    double pi_hat = 0.0;
-    for (size_t i = 0; i < N; ++i) {
-        for (size_t j = 0; j < N; ++j) {
-            double sum_dev = 0.0;
-            double s_ij_daily = S(i, j) / ann_factor;
-            for (size_t t = 0; t < T; ++t) {
-                double term = (centered(t, i) * centered(t, j)) - s_ij_daily;
-                sum_dev += term * term;
-            }
-            pi_hat += (sum_dev / static_cast<double>(T)) * (ann_factor * ann_factor);
+    // Average pairwise correlation r_bar.
+    double corr_sum = 0.0;
+    for (Eigen::Index i = 0; i < N; ++i) {
+        for (Eigen::Index j = 0; j < N; ++j) {
+            if (i != j && sd(i) > 0.0 && sd(j) > 0.0) corr_sum += S(i, j) / (sd(i) * sd(j));
         }
     }
+    const double r_bar = corr_sum / static_cast<double>(N * (N - 1));
 
-    // Distance gamma_hat = ||S - F||_F^2
-    double gamma_hat = (S - F).squaredNorm();
+    // Constant-correlation target F.
+    Eigen::MatrixXd F = r_bar * (sd * sd.transpose());
+    F.diagonal() = var;
 
-    // Optimal shrinkage intensity delta = pi_hat / (T * gamma_hat)
-    double delta = 0.0;
-    if (gamma_hat > 1e-12) {
-        delta = (pi_hat / static_cast<double>(T)) / gamma_hat;
+    // pi_hat = sum_ij AsyVar[sqrt(T) s_ij]:  pi_ij = (1/T) sum_t (x_ti x_tj - s_ij)^2
+    const Eigen::MatrixXd X2 = X.array().square().matrix();
+    const Eigen::MatrixXd pi_mat = (X2.transpose() * X2) / dT - S.cwiseProduct(S);
+    const double pi_hat = pi_mat.sum();
+
+    // rho_hat = sum_i pi_ii + r_bar * sum_{i != j} (sd_j / sd_i) * theta_ii,ij
+    //   theta_ii,ij = (1/T) sum_t (x_ti^2 - s_ii)(x_ti x_tj - s_ij) = (1/T) sum_t x_ti^3 x_tj - s_ii s_ij
+    const Eigen::MatrixXd X3 = X.array().cube().matrix();
+    const Eigen::MatrixXd term1 = (X3.transpose() * X) / dT;
+    double rho_off = 0.0;
+    for (Eigen::Index i = 0; i < N; ++i) {
+        for (Eigen::Index j = 0; j < N; ++j) {
+            if (i == j || !(sd(i) > 0.0)) continue;
+            const double theta = term1(i, j) - var(i) * S(i, j);
+            rho_off += (sd(j) / sd(i)) * theta;
+        }
     }
-    delta = std::clamp(delta, 0.0, 1.0);
+    const double rho_hat = pi_mat.diagonal().sum() + r_bar * rho_off;
 
-    return (1.0 - delta) * S + delta * F;
+    // gamma_hat = ||F - S||_F^2  (misspecification of the target)
+    const double gamma_hat = (F - S).squaredNorm();
+
+    double delta = 0.0;
+    if (gamma_hat > 1e-300) {
+        const double kappa = (pi_hat - rho_hat) / gamma_hat;
+        delta = std::clamp(kappa / dT, 0.0, 1.0);
+    }
+    if (shrinkage_intensity) *shrinkage_intensity = delta;
+
+    return (delta * F + (1.0 - delta) * S) * ann_factor;
 }
 
 double PortfolioStats::portfolio_return(

@@ -12,51 +12,69 @@ Eigen::VectorXd ConstrainedQpOptimizer::project_onto_bounded_simplex(
     double min_w,
     double max_w
 ) {
-    const size_t n = v.size();
+    const Eigen::Index n = v.size();
     if (n == 0) return v;
+    if (min_w > max_w) {
+        throw std::invalid_argument("Infeasible constraints: min_weight > max_weight");
+    }
 
-    double min_sum = static_cast<double>(n) * min_w;
-    double max_sum = static_cast<double>(n) * max_w;
-    if (min_sum > 1.0 + 1e-9 || max_sum < 1.0 - 1e-9) {
+    const double dn = static_cast<double>(n);
+    if (dn * min_w > 1.0 + 1e-9 || dn * max_w < 1.0 - 1e-9) {
         throw std::invalid_argument("Infeasible constraints: N * min_weight > 1 or N * max_weight < 1");
     }
 
-    // Root finding for theta: g(theta) = sum(clamp(v_i - theta, min_w, max_w)) - 1 = 0
-    double low = v.minCoeff() - max_w - 1.0;
-    double high = v.maxCoeff() - min_w + 1.0;
+    // The KKT conditions give w_i = clamp(v_i - theta, lo, hi) for the unique theta solving
+    //   g(theta) = sum_i clamp(v_i - theta, lo, hi) = 1.
+    // g is continuous, non-increasing and piecewise linear with 2N breakpoints:
+    //   theta = v_i - hi  (coordinate i leaves its upper bound and becomes free)
+    //   theta = v_i - lo  (coordinate i reaches its lower bound)
+    // Sweeping the sorted breakpoints while maintaining the active set finds the exact root in O(N log N).
+    struct Breakpoint {
+        double theta;
+        Eigen::Index idx;
+        bool becomes_free;
+    };
+    std::vector<Breakpoint> events;
+    events.reserve(static_cast<size_t>(2 * n));
+    for (Eigen::Index i = 0; i < n; ++i) {
+        events.push_back({v(i) - max_w, i, true});
+        events.push_back({v(i) - min_w, i, false});
+    }
+    std::sort(events.begin(), events.end(), [](const Breakpoint& a, const Breakpoint& b) {
+        if (a.theta != b.theta) return a.theta < b.theta;
+        return a.becomes_free && !b.becomes_free; // a coordinate must become free before it can hit the floor
+    });
 
-    auto eval_sum = [&](double theta) -> double {
-        double sum = 0.0;
-        for (size_t i = 0; i < n; ++i) {
-            double val = v(i) - theta;
-            sum += std::clamp(val, min_w, max_w);
-        }
-        return sum;
+    // Left of every breakpoint all coordinates sit at the upper bound.
+    double count_hi = dn, count_lo = 0.0, count_free = 0.0, free_sum = 0.0;
+    auto g = [&](double theta) {
+        return count_hi * max_w + count_lo * min_w + free_sum - count_free * theta;
     };
 
-    // 40 iterations of bisection achieves machine precision (< 1e-12)
-    for (int iter = 0; iter < 45; ++iter) {
-        double mid = 0.5 * (low + high);
-        double s = eval_sum(mid);
-        if (s > 1.0) {
-            low = mid;
+    double theta = events.back().theta;
+    for (const auto& e : events) {
+        if (g(e.theta) <= 1.0) {
+            // Root lies on the current linear segment (ending at e.theta).
+            theta = (count_free > 0.0)
+                ? (count_hi * max_w + count_lo * min_w + free_sum - 1.0) / count_free
+                : e.theta;
+            break;
+        }
+        if (e.becomes_free) {
+            count_hi -= 1.0;
+            count_free += 1.0;
+            free_sum += v(e.idx);
         } else {
-            high = mid;
+            count_free -= 1.0;
+            free_sum -= v(e.idx);
+            count_lo += 1.0;
         }
     }
 
-    double optimal_theta = 0.5 * (low + high);
     Eigen::VectorXd w(n);
-    for (size_t i = 0; i < n; ++i) {
-        w(i) = std::clamp(v(i) - optimal_theta, min_w, max_w);
+    for (Eigen::Index i = 0; i < n; ++i) {
+        w(i) = std::clamp(v(i) - theta, min_w, max_w);
     }
-
-    // Minor normalization to guarantee exact sum = 1.0
-    double s = w.sum();
-    if (std::abs(s - 1.0) > 1e-12 && s > 0.0) {
-        w /= s;
-    }
-
     return w;
 }
 
@@ -136,24 +154,49 @@ OptimizationResult ConstrainedQpOptimizer::maximum_sharpe_portfolio(
     const Eigen::VectorXd& expected_returns,
     const Eigen::MatrixXd& cov_matrix
 ) const {
-    // Find risk aversion gamma > 0 that maximizes Sharpe ratio along the constrained efficient frontier
-    double best_sharpe = -1e9;
-    OptimizationResult best_result;
+    // The constrained tangency portfolio lies on the constrained frontier traced by the risk-aversion
+    // parameter gamma. Stage 1: coarse log-spaced scan (plus gamma = 0, the GMV end of the frontier).
+    // Stage 2: golden-section refinement of log10(gamma) around the best grid point.
+    const size_t grid_steps = 120;
+    const double log_min = -3.0; // 10^-3
+    const double log_max = 2.5;  // 10^2.5 ~ 316
+    const double grid_h = (log_max - log_min) / static_cast<double>(grid_steps);
 
-    // Log-spaced search grid for gamma parameter
-    const size_t grid_steps = 150;
-    double log_min = -3.0; // 10^-3
-    double log_max = 2.5;  // 10^2.5 ~ 316.0
+    auto solve_at = [&](double log_gamma) {
+        return optimize_risk_aversion(expected_returns, cov_matrix, std::pow(10.0, log_gamma));
+    };
 
+    OptimizationResult best_result = optimize_risk_aversion(expected_returns, cov_matrix, 0.0);
+    double best_log_gamma = log_min;
     for (size_t i = 0; i <= grid_steps; ++i) {
-        double log_gamma = log_min + (static_cast<double>(i) / grid_steps) * (log_max - log_min);
-        double gamma = std::pow(10.0, log_gamma);
-
-        auto candidate = optimize_risk_aversion(expected_returns, cov_matrix, gamma);
-        if (candidate.sharpe_ratio > best_sharpe) {
-            best_sharpe = candidate.sharpe_ratio;
-            best_result = candidate;
+        const double log_gamma = log_min + static_cast<double>(i) * grid_h;
+        auto candidate = solve_at(log_gamma);
+        if (candidate.sharpe_ratio > best_result.sharpe_ratio) {
+            best_result = std::move(candidate);
+            best_log_gamma = log_gamma;
         }
+    }
+
+    constexpr double inv_phi = 0.6180339887498949; // 1 / golden ratio
+    double a = std::max(log_min, best_log_gamma - grid_h);
+    double b = std::min(log_max, best_log_gamma + grid_h);
+    double c = b - inv_phi * (b - a);
+    double d = a + inv_phi * (b - a);
+    auto fc = solve_at(c);
+    auto fd = solve_at(d);
+    for (int iter = 0; iter < 40 && (b - a) > 1e-9; ++iter) {
+        if (fc.sharpe_ratio > fd.sharpe_ratio) {
+            b = d; d = c; fd = std::move(fc);
+            c = b - inv_phi * (b - a);
+            fc = solve_at(c);
+        } else {
+            a = c; c = d; fc = std::move(fd);
+            d = a + inv_phi * (b - a);
+            fd = solve_at(d);
+        }
+    }
+    for (auto* cand : {&fc, &fd}) {
+        if (cand->sharpe_ratio > best_result.sharpe_ratio) best_result = *cand;
     }
 
     best_result.method = "Constrained Max Sharpe (Tangency)";
