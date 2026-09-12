@@ -17,6 +17,37 @@ AddressSanitizer + UndefinedBehaviorSanitizer on every push.
 
 ---
 
+## Results at a glance
+
+Parameters chosen on a training window, then traded unchanged on the next unseen window. The blue
+bars are what the optimizer believed; the darker bars are what happened next.
+
+![Walk-forward in-sample versus out-of-sample Sharpe](docs/images/walk_forward.svg)
+
+Every pair in an in-sample parameter sweep. The best cell is the one the optimizer would have picked
+— note that the *median* cell loses money, which is what a lucky winner looks like.
+
+![In-sample SMA parameter sweep](docs/images/parameter_sweep.svg)
+
+<details>
+<summary>Equity curves and the constrained efficient frontier</summary>
+
+![Equity curves](docs/images/equity_curves.svg)
+
+![Constrained efficient frontier](docs/images/efficient_frontier.svg)
+
+</details>
+
+Charts are generated from the CLI's own CSV exports by `scripts/make_charts.py`, which uses only the
+Python standard library:
+
+```bash
+./build/bin/axiomquant --data sample_data --no-db --export-dir out
+python3 scripts/make_charts.py --input out --output docs/images
+```
+
+---
+
 ## Architecture
 
 ```
@@ -193,6 +224,23 @@ Examples:
 # reproduce the look-ahead-biased convention to see how much it flatters results
 ./build/bin/axiomquant --fill close
 ```
+
+---
+
+## Using real market data
+
+The bundled `sample_data/` is synthetic (see [RESEARCH.md](RESEARCH.md) for the evidence). To run on
+real prices, fetch them with the included script — standard library only, no API key, no account:
+
+```bash
+python3 scripts/fetch_data.py --out real_data --tickers SPY AAPL MSFT GOOGL AMZN --start 2015-01-01
+./build/bin/axiomquant --data real_data --export-dir out
+```
+
+Any directory of `Date,Open,High,Low,Close,Adj Close,Volume` CSVs works, in any column order, one
+file per symbol. The [Real data workflow](../../actions/workflows/real-data.yml) runs this end to end
+weekly and uploads the results, so the fetcher is verified against the live feed rather than assumed
+to work.
 
 ---
 
