@@ -380,11 +380,16 @@ int run_pipeline(const Options& opt) {
     backtest::BacktestEngine engine(universe, backtest::Portfolio(opt.capital),
                                     backtest::ExecutionModel(exec_cfg), engine_cfg);
 
-    std::vector<std::unique_ptr<backtest::Strategy>> strategies;
-    strategies.push_back(std::make_unique<backtest::strategies::BuyAndHoldStrategy>(ticker, 0.99));
-    strategies.push_back(std::make_unique<backtest::strategies::SmaCrossoverStrategy>(ticker, 20, 50, 0.95));
-    strategies.push_back(std::make_unique<backtest::strategies::RsiMeanReversionStrategy>(ticker, 14, 30.0, 70.0, 0.95));
-    strategies.push_back(std::make_unique<backtest::strategies::MultiAssetMomentumStrategy>(60, 20, 2, 0.95));
+    // Strategies are stateful, so each pass over the data needs a fresh set.
+    auto make_strategies = [&ticker]() {
+        std::vector<std::unique_ptr<backtest::Strategy>> built;
+        built.push_back(std::make_unique<backtest::strategies::BuyAndHoldStrategy>(ticker, 0.99));
+        built.push_back(std::make_unique<backtest::strategies::SmaCrossoverStrategy>(ticker, 20, 50, 0.95));
+        built.push_back(std::make_unique<backtest::strategies::RsiMeanReversionStrategy>(ticker, 14, 30.0, 70.0, 0.95));
+        built.push_back(std::make_unique<backtest::strategies::MultiAssetMomentumStrategy>(60, 20, 2, 0.95));
+        return built;
+    };
+    auto strategies = make_strategies();
 
     std::vector<StrategyRun> runs;
     const auto tournament_start = std::chrono::steady_clock::now();
@@ -422,6 +427,41 @@ int run_pipeline(const Options& opt) {
             persist_run(*storage, runs[i], "RUN_" + stamp + "_" + std::to_string(i), created_at);
         }
         std::cout << "  Persisted " << runs.size() << " runs (summary, fills, equity curves) at " << created_at << "\n";
+    }
+
+    // --------------------------------------------------- cost of look-ahead
+    // Same strategies, same costs, same data - only the fill convention changes. The gap is the
+    // return a backtest invents when it trades on the close that produced the signal.
+    {
+        backtest::EngineConfig biased_cfg = engine_cfg;
+        biased_cfg.fill_timing = (engine_cfg.fill_timing == backtest::FillTiming::NextBarOpen)
+            ? backtest::FillTiming::SameBarClose
+            : backtest::FillTiming::NextBarOpen;
+        backtest::BacktestEngine biased_engine(universe, backtest::Portfolio(opt.capital),
+                                               backtest::ExecutionModel(exec_cfg), biased_cfg);
+
+        std::cout << "\n  COST OF LOOK-AHEAD - next-bar-open fills vs trading the signal bar's close\n";
+        std::cout << "  " << std::string(88, '-') << "\n";
+        std::cout << "  " << std::left << std::setw(42) << "Strategy" << std::right
+                  << std::setw(11) << "Sharpe" << std::setw(13) << "Sharpe(LA)" << std::setw(9) << "delta"
+                  << std::setw(11) << "Return" << std::setw(13) << "Return(LA)" << "\n";
+        std::cout << "  " << std::string(88, '-') << "\n";
+
+        auto biased_strategies = make_strategies();
+        for (size_t i = 0; i < biased_strategies.size(); ++i) {
+            const auto biased_result = biased_engine.run(*biased_strategies[i]);
+            const auto biased_summary = risk::RiskReport::evaluate(biased_result, opt.risk_free);
+            std::cout << "  " << std::left << std::setw(42) << runs[i].result.strategy_name << std::right
+                      << std::fixed << std::setprecision(2)
+                      << std::setw(11) << runs[i].summary.sharpe_ratio
+                      << std::setw(13) << biased_summary.sharpe_ratio
+                      << std::setw(9) << (biased_summary.sharpe_ratio - runs[i].summary.sharpe_ratio)
+                      << std::setprecision(1)
+                      << std::setw(10) << (runs[i].summary.total_return * 100.0) << "%"
+                      << std::setw(12) << (biased_summary.total_return * 100.0) << "%\n";
+        }
+        std::cout << "  " << std::string(88, '-') << "\n";
+        std::cout << "  (LA) fills at the close that generated the signal - information no live trader has.\n";
     }
 
     // ----------------------------------------------------------------- sweep

@@ -1,0 +1,53 @@
+name: Real data
+
+# Runs the full pipeline on real market data downloaded from Stooq, so the results in RESEARCH.md
+# can be reproduced against actual prices rather than the bundled synthetic sample. Kept separate
+# from CI: a third-party data feed is not part of this repository's correctness.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: Symbols to download
+        default: SPY AAPL MSFT GOOGL AMZN
+      start:
+        description: First date (YYYY-MM-DD)
+        default: "2015-01-01"
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays, to catch feed or format changes early
+
+jobs:
+  real-data:
+    name: Fetch and analyse real prices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download daily bars
+        run: |
+          python3 scripts/fetch_data.py \
+            --out real_data \
+            --tickers ${{ github.event.inputs.tickers || 'SPY AAPL MSFT GOOGL AMZN' }} \
+            --start ${{ github.event.inputs.start || '2015-01-01' }}
+
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+
+      - name: Run the pipeline on real data
+        run: |
+          mkdir -p real-output
+          ./build/bin/axiomquant --data real_data --no-db --export-dir real-output | tee real-output.txt
+
+      - name: Render charts
+        run: python3 scripts/make_charts.py --input real-output --output real-output/images
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-data-results
+          path: |
+            real-output.txt
+            real-output/
+            real_data/

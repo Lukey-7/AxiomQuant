@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="900" height="460">
+<rect width="900" height="460" fill="#ffffff"/>
+<text x="30.0" y="26.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="17" fill="#1f2328" text-anchor="start" font-weight="600">Constrained efficient frontier</text>
+<text x="30.0" y="44.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">long-only, 40% per-asset cap, Ledoit-Wolf covariance, FISTA with exact simplex projection</text>
+<line x1="78" y1="398.0" x2="874" y2="398.0" stroke="#e4e8ec"/>
+<text x="68.0" y="402.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">7.2%</text>
+<line x1="78" y1="340.3" x2="874" y2="340.3" stroke="#e4e8ec"/>
+<text x="68.0" y="344.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">8.2%</text>
+<line x1="78" y1="282.7" x2="874" y2="282.7" stroke="#e4e8ec"/>
+<text x="68.0" y="286.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">9.1%</text>
+<line x1="78" y1="225.0" x2="874" y2="225.0" stroke="#e4e8ec"/>
+<text x="68.0" y="229.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">10.0%</text>
+<line x1="78" y1="167.3" x2="874" y2="167.3" stroke="#e4e8ec"/>
+<text x="68.0" y="171.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">11.0%</text>
+<line x1="78" y1="109.7" x2="874" y2="109.7" stroke="#e4e8ec"/>
+<text x="68.0" y="113.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">11.9%</text>
+<line x1="78" y1="52.0" x2="874" y2="52.0" stroke="#e4e8ec"/>
+<text x="68.0" y="56.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">12.8%</text>
+<path d="M155.0,364.5 L155.1,360.5 L155.2,358.9 L155.3,356.7 L155.5,353.5 L156.0,349.1 L156.8,344.3 L158.2,337.5 L161.1,328.0 L166.7,314.8 L177.7,296.1 L199.3,269.9 L241.6,233.2 L323.8,181.7 L378.6,155.7 L387.4,152.4 L442.0,140.7 L638.9,107.2 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5" fill="none" stroke="#2563eb" stroke-width="2"/>
+<circle cx="155.0" cy="364.5" r="3" fill="#2563eb"/>
+<circle cx="155.1" cy="360.5" r="3" fill="#2563eb"/>
+<circle cx="155.2" cy="358.9" r="3" fill="#2563eb"/>
+<circle cx="155.3" cy="356.7" r="3" fill="#2563eb"/>
+<circle cx="155.5" cy="353.5" r="3" fill="#2563eb"/>
+<circle cx="156.0" cy="349.1" r="3" fill="#2563eb"/>
+<circle cx="156.8" cy="344.3" r="3" fill="#2563eb"/>
+<circle cx="158.2" cy="337.5" r="3" fill="#2563eb"/>
+<circle cx="161.1" cy="328.0" r="3" fill="#2563eb"/>
+<circle cx="166.7" cy="314.8" r="3" fill="#2563eb"/>
+<circle cx="177.7" cy="296.1" r="3" fill="#2563eb"/>
+<circle cx="199.3" cy="269.9" r="3" fill="#2563eb"/>
+<circle cx="241.6" cy="233.2" r="3" fill="#2563eb"/>
+<circle cx="323.8" cy="181.7" r="3" fill="#2563eb"/>
+<circle cx="378.6" cy="155.7" r="3" fill="#2563eb"/>
+<circle cx="387.4" cy="152.4" r="3" fill="#2563eb"/>
+<circle cx="442.0" cy="140.7" r="3" fill="#2563eb"/>
+<circle cx="638.9" cy="107.2" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="797.0" cy="85.5" r="7" fill="none" stroke="#16a34a" stroke-width="2.5"/>
+<text x="809.0" y="89.5" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#16a34a" text-anchor="start" font-weight="normal">max Sharpe 0.49</text>
+<circle cx="155.0" cy="364.5" r="7" fill="none" stroke="#656d76" stroke-width="2.5"/>
+<text x="167.0" y="368.5" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">min variance</text>
+<text x="78.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">annualized volatility 18.6% to 21.0%</text>
+<text x="78.0" y="444.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">max-Sharpe holdings: AAPL 40%, GOOGL 40%, SPY 20%</text>
+</svg>
