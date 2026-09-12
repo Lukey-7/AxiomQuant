@@ -1,0 +1,110 @@
+# Working context for AxiomQuant
+
+Read this first when picking the project up cold. It records the constraints, the verification loop,
+what is already done, and what is worth doing next.
+
+Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
+
+---
+
+## Hard constraints
+
+1. **Nothing in the repository may attribute the work to an AI assistant.** No commit trailers, no
+   `Co-Authored-By`, no mentions in the README, RESEARCH, code comments or docs. This file is working
+   context only; keep its content about the project.
+2. **There is no C++ compiler or CMake on the development machine.** Do not try to build locally.
+   Every change is verified by GitHub Actions. Expect the first push of any large change to fail to
+   compile, and budget a fix round.
+3. **Every number in the README and RESEARCH.md must come from an actual CI run**, and the run and
+   runner must be named. Nothing invented, nothing remembered from a previous run. If a figure cannot
+   be traced to a run, remove it.
+4. **Verification loop:** push to a branch (`improvements`, never straight to `main`) →
+   `gh run watch <id> --exit-status` → `gh run view <id> --log-failed` → fix → repeat until green on
+   all four jobs → merge to `main`.
+5. Small, focused commits with clear messages. Match the surrounding code style (4 spaces, `snake_case`
+   members with a trailing underscore, `[[nodiscard]]` on pure accessors, doc comments on public APIs).
+
+## Machine gotchas
+
+- `gh` has two accounts logged in and **the active one keeps reverting to VD0WQ, which cannot push**.
+  Before pushing, check `gh auth status`; if VD0WQ is active, the user must run
+  `gh auth switch --user Lukey-7` (the assistant is not permitted to run it). Push immediately after.
+- Long heredocs through the Bash tool fail with `ENAMETOOLONG`, and backslash escapes inside them get
+  mangled. Use the file-writing tool for anything sizeable, and the editing tool for precise patches.
+- Files on disk are CRLF (git `autocrlf`); normalise before string matching in scripts.
+- Python 3.14 with NumPy is available locally. Useful for computing independent reference values for
+  tests — that is how the Ledoit-Wolf test was pinned.
+
+---
+
+## Current state (all green)
+
+`main` is green on Linux/GCC, macOS/Apple Clang, Windows/MSVC and a Clang ASan+UBSan build:
+**43 tests** plus an end-to-end CLI run. Reference CI run for every published number:
+**34671037291** (job *Linux (GCC)*, `ubuntu-latest`, 4 vCPU).
+
+### Layout
+
+```
+data/         CSV loader, columnar TimeSeries, MarketDataUniverse (synchronize, aligned closes, slice)
+indicators/   SMA EMA RSI MACD Bollinger rolling-vol ATR (header-only)
+backtest/     engine (fill timing, cash guard), execution/cost model, portfolio, strategies
+risk/         metrics, VaR/CVaR (historical, Gaussian, Cornish-Fisher), text reports, ASCII charts
+simulation/   deterministic per-path RNG, bootstrap, correlated multi-asset GBM
+optimization/ covariance + Ledoit-Wolf, GMV/tangency, constrained QP (FISTA), frontier, risk parity
+analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward
+cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study
+tests/        43 tests; test_support.hpp builds synthetic universes and scripted strategies
+scripts/      fetch_data.py (Stooq, stdlib only), make_charts.py (dependency-free SVG)
+docs/         STUDY_GUIDE.md, images/*.svg
+```
+
+### Design decisions worth preserving
+
+- Orders emitted on bar *t* fill at bar *t+1*'s **open**. `FillTiming::SameBarClose` exists only so the
+  bias can be measured; the CLI prints that comparison.
+- Trade statistics come from realized PnL on closing fills, never from sale proceeds.
+- Monte Carlo seeds **per path**, not per thread, so results are identical at any thread count. Keep
+  the custom xoshiro256\*\* + polar sampler; `std::normal_distribution` is not portable across
+  standard libraries and would break reproducibility.
+- The bounded-simplex projection is an exact O(N log N) breakpoint sweep. Do not reintroduce
+  renormalisation after clamping — it can violate the box constraints.
+- Walk-forward windows start flat; warm-up bars are replayed with `trading_start_index` blocking orders.
+- OpenMP is optional everywhere; guard every `omp.h` include and pragma with `#ifdef _OPENMP`.
+
+### Known truths about the data
+
+`sample_data/` is **synthetic**: its "SPY" rises through the March 2020 crash, ends 2024 at 381
+(real ≈ 586), starts at exactly 320.0000, and all pairwise correlations sit in 0.539–0.578. That last
+point is why Ledoit-Wolf δ clamps to 1.0 on this data — verified against an independent NumPy
+implementation, not a bug. RESEARCH.md says all of this plainly; keep it that way.
+
+---
+
+## Next steps, highest value first
+
+1. **Rerun the whole analysis on real data and rewrite RESEARCH.md around it.** The fetcher and the
+   `Real data` workflow already exist (`workflow_dispatch` or weekly cron). This is the biggest
+   remaining weakness: every current conclusion rests on synthetic prices.
+2. **Statistical significance for the out-of-sample result.** Stationary block bootstrap over the
+   stitched OOS returns for a Sharpe confidence interval and p-value, plus a deflated Sharpe ratio
+   accounting for the number of configurations tried. Belongs in `analysis/`.
+3. **Cross-validate the optimizer against a reference solver** (`cvxpy` / `PyPortfolioOpt`) in a CI
+   job, asserting agreement to ~1e-8 on the constrained problems.
+4. **Benchmark against a reference implementation** (vectorised NumPy) with the script committed, plus
+   a threads-vs-throughput scaling chart. Present timings relative to something, not in isolation.
+5. **Polish:** `clang-format` + `clang-tidy` in CI, coverage reporting, block bootstrap in the
+   simulation module, cost-sensitivity sweep, volatility-targeted position sizing.
+
+## Commands
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel   # CI only, not locally
+ctest --test-dir build --output-on-failure -V
+./build/bin/axiomquant --data sample_data --no-db --export-dir out
+python3 scripts/fetch_data.py --out real_data --start 2015-01-01
+python3 scripts/make_charts.py --input out --output docs/images
+gh run list --branch main --limit 3
+gh run watch <run-id> --exit-status && gh run view <run-id> --log-failed
+gh workflow run "Real data"
+```
