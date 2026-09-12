@@ -38,3 +38,8 @@ test_*.db
 *.sublime-workspace
 .DS_Store
 Thumbs.db
+
+# Local build/output artifacts
+compile_commands.json
+cli-output/
+build*/

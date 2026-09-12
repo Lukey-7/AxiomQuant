@@ -6,11 +6,11 @@ add_executable(quant_tests
     test_risk.cpp
     test_monte_carlo.cpp
     test_optimization.cpp
+    test_analysis.cpp
 )
 
 target_include_directories(quant_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${EIGEN3_INCLUDE_DIR}
 )
 
 target_link_libraries(quant_tests PRIVATE
@@ -20,5 +20,17 @@ target_link_libraries(quant_tests PRIVATE
     quant_risk
     quant_simulation
     quant_optimization
-    OpenMP::OpenMP_CXX
+    quant_analysis
+    axiom_eigen
+    axiom_openmp
 )
+
+add_test(NAME unit_tests COMMAND quant_tests WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+# End-to-end smoke test of the full CLI pipeline on the bundled sample universe.
+if(TARGET quant_engine_cli)
+    add_test(NAME cli_end_to_end
+        COMMAND quant_engine_cli --data ${PROJECT_SOURCE_DIR}/sample_data --paths 2000 --no-db
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endif()
