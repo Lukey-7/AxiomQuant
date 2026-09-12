@@ -15,19 +15,26 @@ struct DrawdownInfo {
 };
 
 struct TradeMetrics {
-    int total_trades{0};
+    int total_trades{0};           // All fills (entries + exits)
+    int closed_trades{0};          // Fills that reduced or closed a position (realize PnL)
     int winning_trades{0};
     int losing_trades{0};
-    double win_rate{0.0};          // winning_trades / total_trades
-    double profit_factor{0.0};     // gross_profit / gross_loss
+    double win_rate{0.0};          // winning_trades / closed_trades
+    double profit_factor{0.0};     // gross_profit / gross_loss (+inf if there were no losing trades)
+    double gross_profit{0.0};
+    double gross_loss{0.0};
     double total_realized_pnl{0.0};
-    double average_trade_pnl{0.0};
+    double average_trade_pnl{0.0}; // total_realized_pnl / closed_trades
     double largest_win{0.0};
     double largest_loss{0.0};
     double total_commissions{0.0};
 };
 
 struct PerformanceSummary {
+    double risk_free_rate{0.0};
+    double years{0.0};             // Calendar length of the backtest
+    double exposure{0.0};          // Fraction of bars with capital deployed in the market
+    double total_transaction_costs{0.0}; // Commissions + slippage + half-spread
     double initial_equity{0.0};
     double final_equity{0.0};
     double total_return{0.0};
