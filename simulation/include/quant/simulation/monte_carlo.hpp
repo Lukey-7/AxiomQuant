@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstddef>
+#include <cstdint>
 #include <Eigen/Dense>
 
 namespace quant::simulation {
@@ -12,13 +13,17 @@ struct MonteCarloConfig {
     size_t horizon_days{252};
     double initial_wealth{100000.0};
     uint64_t seed{42};
-    bool use_bootstrap{false};
+    bool use_bootstrap{false};     // run_simulation: resample history (true) or fit a GBM (false)
+    bool rebalance_daily{false};   // run_gbm_portfolio: constant-mix (true) or buy-and-hold (false)
+    size_t num_threads{0};         // 0 = OpenMP default
 };
 
 struct MonteCarloReport {
+    std::string method;
     size_t num_simulations{0};
     size_t horizon_days{0};
     double initial_wealth{0.0};
+    int threads_used{1};
 
     double mean_terminal_wealth{0.0};
     double median_terminal_wealth{0.0};
@@ -47,23 +52,36 @@ struct MonteCarloReport {
     double cvar_95_terminal{0.0};
 
     double elapsed_ms{0.0};
+    double paths_per_second{0.0};
 };
 
+/**
+ * @brief Parallel Monte Carlo engine.
+ *
+ * Every path owns an independent xoshiro256** stream seeded from (seed, path index), and normals
+ * are drawn with a portable Marsaglia polar sampler. Results are therefore bit-identical for a
+ * given seed regardless of thread count, scheduling, or standard library implementation.
+ * Paths are simulated in streaming fashion (no per-path allocation).
+ */
 class MonteCarloEngine {
 public:
     explicit MonteCarloEngine(MonteCarloConfig config = MonteCarloConfig{}) : config_(config) {}
 
     /**
-     * @brief Run Monte Carlo simulation for a single return stream (e.g. backtest returns).
-     * @param historical_returns Daily historical returns.
+     * @brief Simulate a single return stream (e.g. backtest daily returns), either by i.i.d.
+     *        bootstrap resampling or by a GBM fitted to the stream's mean and volatility.
      */
     [[nodiscard]] MonteCarloReport run_simulation(const std::vector<double>& historical_returns) const;
 
     /**
-     * @brief Run Monte Carlo simulation for a multi-asset portfolio with given weights.
-     * @param expected_returns Asset annualized expected returns vector.
-     * @param cov_matrix Asset daily covariance matrix.
-     * @param weights Portfolio allocation weights vector.
+     * @brief Correlated multi-asset GBM simulation of a weighted portfolio.
+     *
+     * Asset log-returns are drawn as  x_t = drift + L z_t  with  L L^T = Sigma_daily  (Cholesky),
+     * so the full cross-asset correlation structure is preserved.
+     *
+     * @param expected_returns Annualized arithmetic expected returns (N).
+     * @param cov_matrix       DAILY covariance matrix (N x N).
+     * @param weights          Portfolio weights (N), typically summing to 1.
      */
     [[nodiscard]] MonteCarloReport run_gbm_portfolio(
         const Eigen::VectorXd& expected_returns,
@@ -75,6 +93,8 @@ public:
      * @brief Formats report as rich text table.
      */
     [[nodiscard]] static std::string generate_text_report(const MonteCarloReport& rep);
+
+    [[nodiscard]] const MonteCarloConfig& get_config() const noexcept { return config_; }
 
 private:
     MonteCarloConfig config_;
