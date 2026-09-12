@@ -58,7 +58,8 @@ jobs:
         run: |
           BIN=build/bin/axiomquant
           if [ -f build/bin/${{ matrix.config }}/axiomquant.exe ]; then BIN=build/bin/${{ matrix.config }}/axiomquant.exe; fi
-          "$BIN" --data sample_data --no-db --export-dir cli-output | tee cli-output/../cli-output.txt
+          mkdir -p cli-output
+          "$BIN" --data sample_data --no-db --export-dir cli-output | tee cli-output.txt
 
       - name: Upload CLI output
         if: matrix.config == 'Release'
