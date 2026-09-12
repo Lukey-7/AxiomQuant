@@ -1,4 +1,5 @@
 #include "test_harness.hpp"
+#include <string>
 #include "quant/data/types.hpp"
 #include "quant/data/csv_loader.hpp"
 #include "quant/data/universe.hpp"
@@ -101,4 +102,45 @@ TEST_CASE(TestData_Sqlite_Persistence_Roundtrip) {
     }
 
     std::filesystem::remove(test_db, ec);
+}
+
+// --- Regression: indicators must be indexed on the synchronized timeline, not the raw series ---
+TEST_CASE(TestData_AlignedClosesFollowTheTimeline) {
+    quant::data::TimeSeries ts1("AAPL");
+    ts1.push_back({"2023-01-01", 1000, 10.0, 11.0, 9.0, 10.0, 10.0, 100});
+    ts1.push_back({"2023-01-02", 2000, 10.0, 12.0, 9.0, 11.0, 11.0, 100});
+    ts1.push_back({"2023-01-03", 3000, 11.0, 13.0, 10.0, 12.0, 12.0, 100});
+
+    quant::data::TimeSeries ts2("MSFT");
+    ts2.push_back({"2023-01-02", 2000, 20.0, 22.0, 19.0, 21.0, 21.0, 200});
+    ts2.push_back({"2023-01-03", 3000, 21.0, 24.0, 20.0, 22.0, 22.0, 200});
+
+    quant::data::MarketDataUniverse uni;
+    uni.add_asset("AAPL", ts1);
+    uni.add_asset("MSFT", ts2);
+    uni.synchronize_timeline(true);
+
+    // The raw AAPL series still has three bars, but the timeline only has two.
+    EXPECT_EQ(uni.get_series("AAPL").size(), 3);
+    const auto closes = uni.get_aligned_closes("AAPL");
+    EXPECT_EQ(closes.size(), 2);
+    EXPECT_NEAR(closes[0], 11.0, 1e-9);   // 2023-01-02, not the dropped 2023-01-01 bar
+    EXPECT_NEAR(closes[1], 12.0, 1e-9);
+}
+
+TEST_CASE(TestData_SliceKeepsWindowOfTimeline) {
+    quant::data::TimeSeries ts("AAPL");
+    for (int i = 0; i < 10; ++i) {
+        const std::string date = "2023-01-" + std::string(i + 1 < 10 ? "0" : "") + std::to_string(i + 1);
+        ts.push_back({date, 1000 + i, 10.0, 11.0, 9.0, 10.0 + i, 10.0 + i, 100});
+    }
+    quant::data::MarketDataUniverse uni;
+    uni.add_asset("AAPL", ts);
+    uni.synchronize_timeline(true);
+
+    const auto window = uni.slice(3, 7);
+    EXPECT_EQ(window.size(), 4);
+    EXPECT_EQ(window.get_timeline().front(), uni.get_timeline()[3]);
+    EXPECT_EQ(window.get_timeline().back(), uni.get_timeline()[6]);
+    EXPECT_NEAR(window.get_snapshot(0).get_bar("AAPL").close, 13.0, 1e-9);
 }

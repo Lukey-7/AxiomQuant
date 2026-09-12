@@ -1,4 +1,6 @@
 #include "test_harness.hpp"
+#include "quant/risk/report.hpp"
+#include "quant/backtest/engine.hpp"
 #include "quant/risk/metrics.hpp"
 #include "quant/risk/var_cvar.hpp"
 #include <cmath>
@@ -53,4 +55,31 @@ TEST_CASE(TestRisk_VaR_CVaR) {
     auto param = quant::risk::ValueAtRisk::parametric(rets, 0.95);
     EXPECT_TRUE(param.var > 0.0);
     EXPECT_TRUE(param.cvar >= param.var);
+}
+
+TEST_CASE(TestRisk_HistoricalVaR_ExactQuantile) {
+    // Returns -5.0%, -4.9%, ... in 0.1% steps: the 5% worst observation is -4.5%.
+    std::vector<double> rets(100);
+    for (size_t i = 0; i < 100; ++i) rets[i] = -0.05 + static_cast<double>(i) * 0.001;
+
+    const auto hist = quant::risk::ValueAtRisk::historical(rets, 0.95);
+    EXPECT_NEAR(hist.var, 0.045, 1e-12);
+    // CVaR is the mean of the six observations at or below that quantile.
+    EXPECT_NEAR(hist.cvar, 0.0475, 1e-12);
+}
+
+// --- Regression: annualization must use the calendar span, not the bar count ---
+TEST_CASE(TestRisk_CagrUsesCalendarDates) {
+    quant::backtest::BacktestResult result;
+    result.strategy_name = "Synthetic";
+    result.initial_cash = 100000.0;
+    result.final_equity = 144000.0;
+    result.total_return = 0.44;
+    result.total_bars = 400;              // deliberately inconsistent with the calendar span
+    result.start_timestamp = 1000000000;
+    result.end_timestamp = result.start_timestamp + static_cast<int64_t>(2.0 * 365.25 * 86400.0);
+
+    const auto summary = quant::risk::RiskReport::evaluate(result, 0.02);
+    EXPECT_NEAR(summary.years, 2.0, 1e-9);
+    EXPECT_NEAR(summary.cagr, 0.20, 1e-9);   // sqrt(1.44) - 1
 }

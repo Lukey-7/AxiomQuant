@@ -1,4 +1,9 @@
 #include "test_harness.hpp"
+#include <algorithm>
+#include <cmath>
+#include <random>
+#include <utility>
+#include <vector>
 #include "quant/optimization/portfolio_stats.hpp"
 #include "quant/optimization/unconstrained.hpp"
 #include "quant/optimization/constrained_qp.hpp"
@@ -87,4 +92,114 @@ TEST_CASE(TestOptimization_LedoitWolf_PositiveDefinite) {
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(solver.eigenvalues()(i) > 0.0);
     }
+}
+
+TEST_CASE(TestOptimization_Simplex_Projection_ExactSolution) {
+    // Projecting (0.8, -0.2, 1.5, 0.1) onto the unit simplex has the closed-form answer below.
+    Eigen::VectorXd v(4);
+    v << 0.8, -0.2, 1.5, 0.1;
+
+    auto proj = quant::optimization::ConstrainedQpOptimizer::project_onto_bounded_simplex(v, 0.0, 1.0);
+    EXPECT_NEAR(proj(0), 0.15, 1e-12);
+    EXPECT_NEAR(proj(1), 0.00, 1e-12);
+    EXPECT_NEAR(proj(2), 0.85, 1e-12);
+    EXPECT_NEAR(proj(3), 0.00, 1e-12);
+    EXPECT_NEAR(proj.sum(), 1.0, 1e-12);
+}
+
+TEST_CASE(TestOptimization_Simplex_Projection_MatchesBisection) {
+    // The exact breakpoint sweep must agree with the bisection root-find it replaced.
+    auto bisection_projection = [](const Eigen::VectorXd& v, double lo, double hi) {
+        double low = v.minCoeff() - hi - 1.0;
+        double high = v.maxCoeff() - lo + 1.0;
+        for (int iter = 0; iter < 200; ++iter) {
+            const double mid = 0.5 * (low + high);
+            double sum = 0.0;
+            for (Eigen::Index i = 0; i < v.size(); ++i) sum += std::clamp(v(i) - mid, lo, hi);
+            if (sum > 1.0) low = mid; else high = mid;
+        }
+        Eigen::VectorXd w(v.size());
+        const double theta = 0.5 * (low + high);
+        for (Eigen::Index i = 0; i < v.size(); ++i) w(i) = std::clamp(v(i) - theta, lo, hi);
+        return w;
+    };
+
+    std::mt19937_64 rng(20240517);
+    std::uniform_real_distribution<double> dist(-1.5, 1.5);
+    const std::vector<std::pair<double, double>> bounds{{0.0, 1.0}, {0.0, 0.40}, {-0.25, 0.60}, {0.05, 0.35}};
+
+    for (const auto& [lo, hi] : bounds) {
+        for (int trial = 0; trial < 50; ++trial) {
+            Eigen::VectorXd v(8);
+            for (Eigen::Index i = 0; i < v.size(); ++i) v(i) = dist(rng);
+
+            auto exact = quant::optimization::ConstrainedQpOptimizer::project_onto_bounded_simplex(v, lo, hi);
+            auto reference = bisection_projection(v, lo, hi);
+
+            EXPECT_NEAR(exact.sum(), 1.0, 1e-9);
+            for (Eigen::Index i = 0; i < v.size(); ++i) {
+                EXPECT_NEAR(exact(i), reference(i), 1e-9);
+                EXPECT_TRUE(exact(i) >= lo - 1e-12 && exact(i) <= hi + 1e-12);
+            }
+        }
+    }
+}
+
+TEST_CASE(TestOptimization_ConstrainedMaxSharpe_IsOptimalOnTheFeasibleSet) {
+    Eigen::VectorXd mu(3);
+    mu << 0.25, 0.15, 0.08;
+    Eigen::MatrixXd cov(3, 3);
+    cov << 0.09, 0.02, 0.01,
+           0.02, 0.05, 0.01,
+           0.01, 0.01, 0.02;
+
+    quant::optimization::ConstrainedQpConfig cfg;
+    cfg.min_weight = 0.0;
+    cfg.max_weight = 0.50;
+    cfg.risk_free_rate = 0.02;
+    quant::optimization::ConstrainedQpOptimizer optimizer(cfg);
+    const auto best = optimizer.maximum_sharpe_portfolio(mu, cov);
+
+    // No randomly sampled feasible portfolio may beat the optimizer's Sharpe ratio.
+    std::mt19937_64 rng(987654321);
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    for (int trial = 0; trial < 3000; ++trial) {
+        Eigen::VectorXd candidate(3);
+        for (Eigen::Index i = 0; i < 3; ++i) candidate(i) = dist(rng);
+        candidate = quant::optimization::ConstrainedQpOptimizer::project_onto_bounded_simplex(
+            candidate, cfg.min_weight, cfg.max_weight);
+        const double sharpe = quant::optimization::PortfolioStats::portfolio_sharpe(candidate, mu, cov, cfg.risk_free_rate);
+        EXPECT_TRUE(sharpe <= best.sharpe_ratio + 1e-6);
+    }
+}
+
+TEST_CASE(TestOptimization_LedoitWolf_MatchesReferenceImplementation) {
+    // Reference values come from an independent implementation of Ledoit & Wolf (2004),
+    // "Honey, I Shrunk the Sample Covariance Matrix", evaluated on this deterministic matrix.
+    const int T = 60, N = 3;
+    Eigen::MatrixXd returns(T, N);
+    for (int t = 0; t < T; ++t) {
+        for (int i = 0; i < N; ++i) {
+            returns(t, i) = 0.01 * std::sin(0.37 * t + 1.3 * i)
+                          + 0.004 * std::cos(1.7 * t * (i + 1))
+                          + 0.001 * (i - 1);
+        }
+    }
+
+    double delta = -1.0;
+    const auto cov = quant::optimization::PortfolioStats::compute_ledoit_wolf_covariance(returns, 252.0, &delta);
+
+    EXPECT_NEAR(delta, 0.0502784214223415, 1e-10);
+    EXPECT_NEAR(cov(0, 0), 0.0142072546450127, 1e-10);
+    EXPECT_NEAR(cov(1, 1), 0.0146442052815486, 1e-10);
+    EXPECT_NEAR(cov(2, 2), 0.0145457604820819, 1e-10);
+    EXPECT_NEAR(cov(0, 1), 0.00306145294513901, 1e-10);
+    EXPECT_NEAR(cov(0, 2), -0.0100980281934189, 1e-10);
+    EXPECT_NEAR(cov(1, 2), 0.00325975827912009, 1e-10);
+
+    EXPECT_TRUE(delta >= 0.0 && delta <= 1.0);
+    EXPECT_NEAR(cov(1, 0), cov(0, 1), 1e-15);
+
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(cov);
+    for (int i = 0; i < N; ++i) EXPECT_TRUE(solver.eigenvalues()(i) > 0.0);
 }
