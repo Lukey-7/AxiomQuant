@@ -221,9 +221,13 @@ void print_tournament(const std::vector<StrategyRun>& runs) {
                   << std::setw(9) << s.sortino_ratio
                   << std::setprecision(1)
                   << std::setw(8) << (s.max_drawdown * 100.0) << "%"
-                  << std::setw(8) << run.result.total_trades
-                  << std::setw(8) << (s.trade_details.win_rate * 100.0) << "%"
-                  << std::setprecision(0) << std::setw(10) << s.total_transaction_costs << "\n";
+                  << std::setw(8) << run.result.total_trades;
+        if (s.trade_details.closed_trades > 0) {
+            std::cout << std::setw(8) << (s.trade_details.win_rate * 100.0) << "%";
+        } else {
+            std::cout << std::setw(9) << "n/a";   // never closed a position, so there is no win rate
+        }
+        std::cout << std::setprecision(0) << std::setw(10) << s.total_transaction_costs << "\n";
     }
     std::cout << rule << "\n";
 }

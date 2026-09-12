@@ -156,7 +156,11 @@ std::string RiskReport::generate_text_report(
     ss << std::setprecision(2);
     ss << "  Fills Executed:              " << result.total_trades
        << "  (" << td.closed_trades << " closing)\n";
-    ss << "  Win Rate:                    " << (td.win_rate * 100.0) << " %\n";
+    if (td.closed_trades > 0) {
+        ss << "  Win Rate:                    " << (td.win_rate * 100.0) << " %\n";
+    } else {
+        ss << "  Win Rate:                    n/a (no positions were closed)\n";
+    }
     ss << "  Profit Factor:               " << format_ratio(td.profit_factor) << "\n";
     ss << "  Avg PnL per Closed Trade:    $" << td.average_trade_pnl << "\n";
     ss << "  Largest Win / Loss:          $" << td.largest_win << " / $" << td.largest_loss << "\n";
