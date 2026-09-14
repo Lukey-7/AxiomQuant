@@ -23,6 +23,7 @@ import argparse
 import csv
 import io
 import sys
+from datetime import date
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -102,7 +103,8 @@ def main() -> int:
     parser.add_argument("--tickers", nargs="+", default=["SPY", "AAPL", "MSFT", "GOOGL", "AMZN"],
                         help="symbols to download (default: SPY AAPL MSFT GOOGL AMZN)")
     parser.add_argument("--start", default="2015-01-01", help="first date, YYYY-MM-DD")
-    parser.add_argument("--end", default="2100-01-01", help="last date, YYYY-MM-DD")
+    parser.add_argument("--end", default=date.today().isoformat(),
+                        help="last date, YYYY-MM-DD (default: today)")
     parser.add_argument("--out", default="real_data", help="output directory")
     parser.add_argument("--min-rows", type=int, default=250,
                         help="fail if a symbol returns fewer usable rows than this")
