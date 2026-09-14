@@ -53,21 +53,32 @@ def fetch_csv(ticker: str, start: str, end: str) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
+def _normalise_header(value: str | None) -> str:
+    if value is None:
+        return ""
+    return value.strip().lstrip("\ufeff").lower()
+
+
 def parse_rows(payload: str) -> list[list[str]]:
     """Validate and normalise Stooq's Date,Open,High,Low,Close,Volume rows."""
     reader = csv.DictReader(io.StringIO(payload))
-    if not reader.fieldnames or "Date" not in reader.fieldnames or "Close" not in reader.fieldnames:
+    if not reader.fieldnames:
+        return []
+
+    header_map = {_normalise_header(field): field for field in reader.fieldnames if field is not None}
+    if "date" not in header_map or "close" not in header_map:
         return []
 
     rows: list[list[str]] = []
-    for row in reader:
+    for raw_row in reader:
+        row = {_normalise_header(key): value for key, value in raw_row.items()}
         try:
-            date = row["Date"].strip()
-            close = float(row["Close"])
-            open_ = float(row.get("Open") or close)
-            high = float(row.get("High") or max(open_, close))
-            low = float(row.get("Low") or min(open_, close))
-            volume = float(row.get("Volume") or 0.0)
+            date = (row.get("date") or "").strip()
+            close = float(row["close"])
+            open_ = float(row.get("open") or close)
+            high = float(row.get("high") or max(open_, close))
+            low = float(row.get("low") or min(open_, close))
+            volume = float(row.get("volume") or 0.0)
         except (TypeError, ValueError):
             continue
         if len(date) < 10 or min(open_, high, low, close) <= 0.0 or high < low:
