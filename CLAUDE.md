@@ -90,6 +90,16 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
 
 ---
 
+## Paused work (resume here)
+
+- `improvements` (green, NOT merged to main): optimizer cross-check job + risk parity fix + FISTA
+  restart + tangency root for max Sharpe. Risk parity weights change, so RESEARCH.md section 5 and
+  the README charts must be refreshed from a new Real data run on `improvements` before merging.
+- `wip-benchmarks` (untested, no CI yet): `cli/src/bench.cpp` (`axiom_bench`) and
+  `scripts/benchmark.py` (NumPy reference, CSV/markdown/SVG). NumPy side verified locally. Still to
+  do: CI job that builds `axiom_bench`, runs the script and uploads the artifact; replace the README
+  Performance table with its output; then items 3 (polish) and 4-6 below.
+
 ## Next steps, highest value first
 
 1. ~~Rerun the analysis on real data~~ — done. Follow-ups it exposed: the five-name universe is

@@ -25,3 +25,17 @@ target_link_libraries(axiom_optimizer_dump PRIVATE
     quant_optimization
     axiom_eigen
 )
+
+# Times the Monte Carlo and bootstrap workloads at several thread counts; used by scripts/benchmark.py.
+add_executable(axiom_bench
+    src/bench.cpp
+)
+
+target_link_libraries(axiom_bench PRIVATE
+    quant_data
+    quant_simulation
+    quant_optimization
+    quant_analysis
+    axiom_eigen
+    axiom_openmp
+)
