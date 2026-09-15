@@ -13,7 +13,7 @@ Sources (subcommands):
   import     Normalise CSVs you already have: Kaggle downloads, broker exports, spreadsheets.
              Accepts one file per symbol or a single "long" file with a symbol column.
   kaggle     Download a Kaggle dataset with the official `kaggle` CLI, then run `import` on it.
-             Needs `pip install kaggle` and KAGGLE_USERNAME / KAGGLE_KEY (or ~/.kaggle/kaggle.json).
+             Needs `pip install kaggle` and KAGGLE_API_TOKEN (or KAGGLE_USERNAME / KAGGLE_KEY).
   synthetic  Generate a correlated geometric-Brownian-motion universe from a seed. Deterministic.
 
 Examples:
@@ -428,7 +428,7 @@ def command_kaggle(args: argparse.Namespace) -> int:
             command += ["-f", args.file]
         print("$ " + " ".join(command[1:]), file=sys.stderr)
         if subprocess.run(command).returncode != 0:
-            print("error: Kaggle download failed (check KAGGLE_USERNAME / KAGGLE_KEY)", file=sys.stderr)
+            print("error: Kaggle download failed (check KAGGLE_API_TOKEN, or KAGGLE_USERNAME / KAGGLE_KEY)", file=sys.stderr)
             return 1
         # `-f` downloads a single file, sometimes zipped even with --unzip.
         for archive in Path(tmp).glob("*.zip"):

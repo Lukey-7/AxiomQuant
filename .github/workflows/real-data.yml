@@ -6,7 +6,7 @@ name: Real data
 #
 # Sources (see scripts/fetch_data.py):
 #   live       Yahoo Finance by default; add a TIINGO_API_KEY repository secret to fall back to Tiingo.
-#   kaggle     Any Kaggle dataset; needs KAGGLE_USERNAME and KAGGLE_KEY repository secrets.
+#   kaggle     Any Kaggle dataset; needs a KAGGLE_API_TOKEN secret (or KAGGLE_USERNAME + KAGGLE_KEY).
 #   synthetic  Seeded generator, useful for checking the workflow itself.
 
 on:
@@ -49,6 +49,7 @@ jobs:
       KAGGLE_DATASET: ${{ github.event.inputs.kaggle_dataset }}
       KAGGLE_FILE: ${{ github.event.inputs.kaggle_file }}
       TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
     steps:
@@ -56,7 +57,7 @@ jobs:
 
       - name: Install Kaggle CLI
         if: env.SOURCE == 'kaggle'
-        run: python3 -m pip install --quiet kaggle
+        run: python3 -m pip install --quiet --upgrade kaggle
 
       - name: Get daily bars
         shell: bash

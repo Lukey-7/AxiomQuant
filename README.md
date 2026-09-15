@@ -241,7 +241,7 @@ python3 scripts/fetch_data.py live --out real_data --tickers SPY AAPL MSFT GOOGL
 # symbol or a single long file with a symbol column; headers, date formats and "$" prices are detected.
 python3 scripts/fetch_data.py import ~/Downloads/all_stocks_5yr.csv --out kaggle_data --tickers AAPL MSFT AMZN
 
-# Or let it download the Kaggle dataset (pip install kaggle; KAGGLE_USERNAME / KAGGLE_KEY).
+# Or let it download the Kaggle dataset (pip install kaggle; KAGGLE_API_TOKEN).
 python3 scripts/fetch_data.py kaggle camnugent/sandp500 --out kaggle_data --tickers AAPL MSFT AMZN
 
 # A seeded, correlated GBM universe, when you want data with known properties.
