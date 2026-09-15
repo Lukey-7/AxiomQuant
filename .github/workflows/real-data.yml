@@ -1,18 +1,39 @@
 name: Real data
 
-# Runs the full pipeline on real market data downloaded from Stooq, so the results in RESEARCH.md
+# Runs the full pipeline on market data from outside the repository, so the results in RESEARCH.md
 # can be reproduced against actual prices rather than the bundled synthetic sample. Kept separate
 # from CI: a third-party data feed is not part of this repository's correctness.
+#
+# Sources (see scripts/fetch_data.py):
+#   live       Yahoo Finance by default; add a TIINGO_API_KEY repository secret to fall back to Tiingo.
+#   kaggle     Any Kaggle dataset; needs KAGGLE_USERNAME and KAGGLE_KEY repository secrets.
+#   synthetic  Seeded generator, useful for checking the workflow itself.
 
 on:
   workflow_dispatch:
     inputs:
+      source:
+        description: Data source
+        type: choice
+        options: [live, kaggle, synthetic]
+        default: live
+      provider:
+        description: Live provider (live only)
+        type: choice
+        options: [auto, yahoo, tiingo]
+        default: auto
       tickers:
-        description: Symbols to download
+        description: Symbols (leave empty with kaggle to keep every symbol)
         default: SPY AAPL MSFT GOOGL AMZN
       start:
         description: First date (YYYY-MM-DD)
         default: "2015-01-01"
+      kaggle_dataset:
+        description: Kaggle dataset slug, e.g. camnugent/sandp500 (kaggle only)
+        default: ""
+      kaggle_file:
+        description: Single file inside the Kaggle dataset (optional)
+        default: ""
   schedule:
     - cron: "17 6 * * 1"   # Mondays, to catch feed or format changes early
 
@@ -20,22 +41,48 @@ jobs:
   real-data:
     name: Fetch and analyse real prices
     runs-on: ubuntu-latest
+    env:
+      SOURCE: ${{ github.event.inputs.source || 'live' }}
+      PROVIDER: ${{ github.event.inputs.provider || 'auto' }}
+      TICKERS: ${{ github.event.inputs.tickers || 'SPY AAPL MSFT GOOGL AMZN' }}
+      START: ${{ github.event.inputs.start || '2015-01-01' }}
+      KAGGLE_DATASET: ${{ github.event.inputs.kaggle_dataset }}
+      KAGGLE_FILE: ${{ github.event.inputs.kaggle_file }}
+      TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download daily bars
+      - name: Install Kaggle CLI
+        if: env.SOURCE == 'kaggle'
+        run: python3 -m pip install --quiet kaggle
+
+      - name: Get daily bars
+        shell: bash
         run: |
-          python3 scripts/fetch_data.py \
-            --out real_data \
-            --tickers ${{ github.event.inputs.tickers || 'SPY AAPL MSFT GOOGL AMZN' }} \
-            --start ${{ github.event.inputs.start || '2015-01-01' }}
+          TICKER_ARGS=()
+          if [ -n "$TICKERS" ]; then read -ra T <<< "$TICKERS"; TICKER_ARGS=(--tickers "${T[@]}"); fi
+          case "$SOURCE" in
+            live)
+              python3 scripts/fetch_data.py live --out real_data --provider "$PROVIDER" \
+                --start "$START" "${TICKER_ARGS[@]}" ;;
+            kaggle)
+              if [ -z "$KAGGLE_DATASET" ]; then echo "::error::kaggle_dataset is required"; exit 1; fi
+              FILE_ARGS=()
+              if [ -n "$KAGGLE_FILE" ]; then FILE_ARGS=(--file "$KAGGLE_FILE"); fi
+              python3 scripts/fetch_data.py kaggle "$KAGGLE_DATASET" --out real_data \
+                --start "$START" "${FILE_ARGS[@]}" "${TICKER_ARGS[@]}" ;;
+            synthetic)
+              python3 scripts/fetch_data.py synthetic --out real_data --start "$START" "${TICKER_ARGS[@]}" ;;
+          esac
 
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --parallel
 
-      - name: Run the pipeline on real data
+      - name: Run the pipeline
         run: |
           mkdir -p real-output
           ./build/bin/axiomquant --data real_data --no-db --export-dir real-output | tee real-output.txt
@@ -46,7 +93,7 @@ jobs:
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: real-data-results
+          name: real-data-results-${{ env.SOURCE }}
           path: |
             real-output.txt
             real-output/

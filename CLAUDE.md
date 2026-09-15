@@ -20,7 +20,7 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
    be traced to a run, remove it.
 4. **Verification loop:** push to a branch (`improvements`, never straight to `main`) →
    `gh run watch <id> --exit-status` → `gh run view <id> --log-failed` → fix → repeat until green on
-   all four jobs → merge to `main`.
+   all jobs (four build jobs plus Data tooling) → merge to `main`.
 5. Small, focused commits with clear messages. Match the surrounding code style (4 spaces, `snake_case`
    members with a trailing underscore, `[[nodiscard]]` on pure accessors, doc comments on public APIs).
 
@@ -55,7 +55,8 @@ optimization/ covariance + Ledoit-Wolf, GMV/tangency, constrained QP (FISTA), fr
 analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward
 cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study
 tests/        43 tests; test_support.hpp builds synthetic universes and scripted strategies
-scripts/      fetch_data.py (Stooq, stdlib only), make_charts.py (dependency-free SVG)
+scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
+              test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG)
 docs/         STUDY_GUIDE.md, images/*.svg
 ```
 

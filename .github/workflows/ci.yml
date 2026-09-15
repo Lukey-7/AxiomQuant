@@ -7,6 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  data-tooling:
+    name: Data tooling (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests (offline)
+        run: python3 -m unittest discover -s scripts -p "test_*.py" -v
+
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -60,6 +68,26 @@ jobs:
           if [ -f build/bin/${{ matrix.config }}/axiomquant.exe ]; then BIN=build/bin/${{ matrix.config }}/axiomquant.exe; fi
           mkdir -p cli-output
           "$BIN" --data sample_data --no-db --export-dir cli-output | tee cli-output.txt
+
+      - name: CLI on generated and imported data
+        if: matrix.name == 'Linux (GCC)'
+        shell: bash
+        run: |
+          python3 scripts/fetch_data.py synthetic --out synth_data --tickers SPY QQQ IWM TLT GLD --seed 7
+          ./build/bin/axiomquant --data synth_data --no-db --paths 500 > synth-output.txt
+          # Round-trip through `import` as a long-format, Kaggle-style file with lower-case headers.
+          python3 - <<'PY'
+          import csv, pathlib
+          with open("long.csv", "w", newline="") as out:
+              w = csv.writer(out)
+              w.writerow(["date", "open", "high", "low", "close", "volume", "Name"])
+              for f in sorted(pathlib.Path("synth_data").glob("*.csv")):
+                  for r in list(csv.reader(f.open()))[1:]:
+                      w.writerow([r[0], r[1], r[2], r[3], r[4], r[6], f.stem])
+          PY
+          python3 scripts/fetch_data.py import long.csv --out imported_data
+          diff -r synth_data imported_data && echo "import round-trip is byte-identical"
+          ./build/bin/axiomquant --data imported_data --no-db --paths 500 > imported-output.txt
 
       - name: Upload CLI output
         if: matrix.config == 'Release'

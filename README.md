@@ -227,20 +227,35 @@ Examples:
 
 ---
 
-## Using real market data
+## Using other data: live, Kaggle, synthetic
 
-The bundled `sample_data/` is synthetic (see [RESEARCH.md](RESEARCH.md) for the evidence). To run on
-real prices, fetch them with the included script — standard library only, no API key, no account:
+The bundled `sample_data/` is synthetic (see [RESEARCH.md](RESEARCH.md) for the evidence). The CLI
+reads any directory of `<TICKER>.csv` files, and `scripts/fetch_data.py` (standard library only)
+builds one from three kinds of source:
 
 ```bash
-python3 scripts/fetch_data.py --out real_data --tickers SPY AAPL MSFT GOOGL AMZN --start 2015-01-01
+# Live prices. Yahoo Finance by default, no key; set TIINGO_API_KEY to fall back to Tiingo.
+python3 scripts/fetch_data.py live --out real_data --tickers SPY AAPL MSFT GOOGL AMZN --start 2015-01-01
+
+# CSVs you already have: a Kaggle download, a broker export, a spreadsheet. Works with one file per
+# symbol or a single long file with a symbol column; headers, date formats and "$" prices are detected.
+python3 scripts/fetch_data.py import ~/Downloads/all_stocks_5yr.csv --out kaggle_data --tickers AAPL MSFT AMZN
+
+# Or let it download the Kaggle dataset (pip install kaggle; KAGGLE_USERNAME / KAGGLE_KEY).
+python3 scripts/fetch_data.py kaggle camnugent/sandp500 --out kaggle_data --tickers AAPL MSFT AMZN
+
+# A seeded, correlated GBM universe, when you want data with known properties.
+python3 scripts/fetch_data.py synthetic --out synth_data --tickers AAA BBB CCC --seed 7 --correlation 0.3
+
 ./build/bin/axiomquant --data real_data --export-dir out
 ```
 
-Any directory of `Date,Open,High,Low,Close,Adj Close,Volume` CSVs works, in any column order, one
-file per symbol. The [Real data workflow](../../actions/workflows/real-data.yml) runs this end to end
-weekly and uploads the results, so the fetcher is verified against the live feed rather than assumed
-to work.
+Every source is validated the same way (bad or non-positive prices dropped, duplicate dates removed,
+rows sorted), adjusted closes are applied to the whole bar, and the script exits non-zero if a symbol
+has fewer than `--min-rows` rows. The [Real data workflow](../../actions/workflows/real-data.yml) runs
+the live source weekly and can be started by hand with any source, so fetching is verified against the
+real feed rather than assumed to work. CI checks the importer offline and runs the CLI on generated
+and imported data.
 
 ---
 
