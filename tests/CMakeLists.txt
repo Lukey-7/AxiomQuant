@@ -7,6 +7,7 @@ add_executable(quant_tests
     test_monte_carlo.cpp
     test_optimization.cpp
     test_analysis.cpp
+    test_significance.cpp
 )
 
 target_include_directories(quant_tests PRIVATE

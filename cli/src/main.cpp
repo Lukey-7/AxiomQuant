@@ -20,6 +20,7 @@
 #include "quant/optimization/unconstrained.hpp"
 #include "quant/optimization/constrained_qp.hpp"
 #include "quant/optimization/efficient_frontier.hpp"
+#include "quant/analysis/significance.hpp"
 #include "quant/analysis/walk_forward.hpp"
 
 #ifdef _OPENMP
@@ -62,6 +63,7 @@ struct Options {
     size_t paths{50000};
     size_t horizon{252};
     uint64_t seed{42};
+    size_t bootstrap{10000};
     size_t wf_train{504};
     size_t wf_test{126};
     fs::path db_path{"axiomquant.db"};
@@ -84,7 +86,8 @@ void print_usage(std::ostream& os) {
           "  --max-weight <w>      Per-asset cap for the constrained optimizer (default: 0.40)\n"
           "  --paths <n>           Monte Carlo paths (default: 50000)\n"
           "  --horizon <days>      Monte Carlo horizon in trading days (default: 252)\n"
-          "  --seed <n>            Monte Carlo seed (default: 42)\n"
+          "  --seed <n>            Monte Carlo and bootstrap seed (default: 42)\n"
+          "  --bootstrap <n>       Bootstrap resamples for the significance test (default: 10000)\n"
           "  --wf-train <bars>     Walk-forward training window (default: 504)\n"
           "  --wf-test <bars>      Walk-forward test window (default: 126)\n"
           "  --db <path>           SQLite database file (default: axiomquant.db)\n"
@@ -135,6 +138,7 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--paths") opt.paths = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--horizon") opt.horizon = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--seed") opt.seed = parse_uint(arg, value());
+        else if (arg == "--bootstrap") opt.bootstrap = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-test") opt.wf_test = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--db") { opt.db_path = value(); opt.use_db = true; }
@@ -157,6 +161,7 @@ Options parse_args(int argc, char* argv[]) {
     if (!(opt.capital > 0.0)) throw std::invalid_argument("--capital must be positive");
     if (opt.paths == 0) throw std::invalid_argument("--paths must be positive");
     if (opt.horizon == 0) throw std::invalid_argument("--horizon must be positive");
+    if (opt.bootstrap == 0) throw std::invalid_argument("--bootstrap must be positive");
     if (!(opt.max_weight > 0.0) || opt.max_weight > 1.0) throw std::invalid_argument("--max-weight must be in (0, 1]");
     if (opt.wf_train < 2 || opt.wf_test < 2) throw std::invalid_argument("--wf-train and --wf-test must be at least 2");
     return opt;
@@ -507,6 +512,17 @@ int run_pipeline(const Options& opt) {
                   << " / " << sweep.size() << "\n";
         std::cout << "  NOTE: every number above is in-sample. The top pair is the luckiest pair on this\n";
         std::cout << "        sample, not a forecast - the walk-forward test below is the honest one.\n";
+
+        // Deflate the winner's Sharpe for the number of pairs the search tried.
+        const auto& best = sweep.front();
+        backtest::strategies::SmaCrossoverStrategy best_strategy(ticker, best.fast_period, best.slow_period, 0.95);
+        std::vector<double> best_returns;
+        (void)analysis::evaluate_window(universe, best_strategy, setup, 0, universe.size(), 0, &best_returns);
+        std::vector<double> trial_sharpes;
+        trial_sharpes.reserve(sweep.size());
+        for (const auto& p : sweep) trial_sharpes.push_back(p.performance.sharpe_ratio);
+        const auto deflated = analysis::deflated_sharpe_ratio(best_returns, trial_sharpes, opt.risk_free);
+        std::cout << "\n" << analysis::format_deflated_sharpe_report(deflated);
     }
 
     // ----------------------------------------------------------- walk-forward
@@ -518,6 +534,15 @@ int run_pipeline(const Options& opt) {
     if (universe.size() >= opt.wf_train + opt.wf_test) {
         wf = analysis::run_sma_walk_forward(universe, ticker, wf_cfg, setup);
         std::cout << analysis::format_walk_forward_report(wf, ticker);
+        if (wf.oos_returns.size() >= 3) {
+            analysis::BootstrapConfig boot_cfg;
+            boot_cfg.resamples = opt.bootstrap;
+            boot_cfg.seed = opt.seed;
+            boot_cfg.risk_free_rate = opt.risk_free;
+            const auto boot = analysis::bootstrap_sharpe(wf.oos_returns, wf.benchmark_returns, boot_cfg);
+            std::cout << "\n  IS THE OUT-OF-SAMPLE RESULT DISTINGUISHABLE FROM LUCK?\n"
+                      << analysis::format_bootstrap_report(boot);
+        }
     } else {
         std::cout << "  Skipped: " << universe.size() << " bars is less than train (" << opt.wf_train
                   << ") + test (" << opt.wf_test << ")\n";
