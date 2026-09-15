@@ -26,7 +26,7 @@ bars are what the optimizer believed; the darker bars are what happened next.
 ![Walk-forward in-sample versus out-of-sample Sharpe](docs/images/walk_forward.svg)
 
 Every pair in an in-sample parameter sweep. The best cell is the one the optimizer would have picked
-— and it only just matches buy-and-hold (Sharpe 0.73 vs 0.71), while 38 of 41 pairs fall short.
+— and it only just matches buy-and-hold (Sharpe 0.74 vs 0.71), while 38 of 41 pairs fall short.
 
 ![In-sample SMA parameter sweep](docs/images/parameter_sweep.svg)
 
@@ -39,7 +39,7 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 </details>
 
-Charts come from [Real data run 34924940650](https://github.com/Lukey-7/AxiomQuant/actions/runs/34924940650)
+Charts come from [Real data run 34929115002](https://github.com/Lukey-7/AxiomQuant/actions/runs/34929115002)
 (SPY, AAPL, AMZN, GOOGL, MSFT, 2015-01-02 to 2026-09-14). They are generated from the CLI's own CSV
 exports by `scripts/make_charts.py`, which uses only the Python standard library:
 

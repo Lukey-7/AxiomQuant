@@ -6,9 +6,13 @@ the same days returned **+254.6%**, Sharpe **0.73**. The strategy drew down less
 but only because it spent most of a strong bull market in cash. The same parameter search looked
 competitive in sample, with a mean in-sample Sharpe of 1.03; out of sample that fell to 0.38.
 
+**And the out-of-sample Sharpe of 0.19 is statistically indistinguishable from zero** (block-bootstrap
+95% interval −0.38 to 0.78, p = 0.27), while buy-and-hold's 0.73 is
+clearly positive (p = 0.017). See section 4.
+
 Every number below comes from one CI run of this repository, not from a local machine:
-[run 34924940650](https://github.com/Lukey-7/AxiomQuant/actions/runs/34924940650), workflow *Real
-data*, job *Fetch and analyse real prices*, `ubuntu-latest`, OpenMP on 4 threads, commit `698cd3d`.
+[run 34929115002](https://github.com/Lukey-7/AxiomQuant/actions/runs/34929115002), workflow *Real
+data*, job *Fetch and analyse real prices*, `ubuntu-latest`, OpenMP on 4 threads, commit `7e129ae`.
 It ran
 
 ```bash
@@ -73,7 +77,7 @@ hindsight is survivorship bias in its purest form; any rule that tends to hold t
 that list will look spectacular. It also paid $42,718 in costs, 657× the benchmark's $65. A fair test
 needs a point-in-time universe (for example, S&P 500 membership as it was on each date).
 
-A 41-pair SMA sweep over the full sample finds 5/125 with Sharpe **0.73**, only just above the
+A 41-pair SMA sweep over the full sample finds 5/125 with Sharpe **0.74**, only just above the
 benchmark's 0.71. The grid's median is 0.52, its worst 0.34, and **3 of 41** pairs beat buy-and-hold.
 
 **Cost of look-ahead.** Re-running each strategy with fills at the signal bar's close changes Sharpe
@@ -136,12 +140,51 @@ across windows (still with no look-ahead) is a fairer test and is listed under l
 
 ---
 
-## 4. Portfolio optimization findings
+## 4. Is any of this statistically significant?
+
+A difference in Sharpe ratios means little without an error bar. Two tests, both printed by the CLI.
+
+**Out of sample: stationary block bootstrap.** The 2,375 stitched out-of-sample daily returns of the
+strategy and of buy-and-hold are resampled together, 10,000 times, in blocks of random length
+(geometric, mean 13.3 days = T^(1/3)) so that volatility clustering and short-range autocorrelation
+survive (Politis & Romano, 1994). Using the same blocks for both series keeps the comparison paired.
+
+| | Sharpe | 95% interval | p-value | Null hypothesis |
+|---|---|---|---|---|
+| SMA, walk-forward | 0.185 | [−0.381, 0.780] | 0.273 | Sharpe ≤ 0 |
+| Buy & hold | 0.726 | [0.154, 1.398] | **0.017** | Sharpe ≤ 0 |
+| Difference | −0.541 | [−1.239, 0.128] | 0.119 | no difference |
+
+The probabilistic Sharpe ratio (Bailey & López de Prado, 2012), which corrects the standard error for
+skewness and fat tails instead of resampling, puts the probability that the strategy's true Sharpe is
+above zero at 0.713: better than a coin flip, far from convincing.
+
+Read together: **there is no evidence the strategy makes money at all**, and good evidence that simply
+holding the index does. The evidence that the strategy is *worse* than buy-and-hold is suggestive but
+not conclusive at the 5% level (p = 0.12). Nearly 12 years of daily data is not enough to pin a Sharpe
+ratio down to better than about ±0.6, which is worth remembering whenever a backtest reports one to
+two decimal places.
+
+**In sample: deflated Sharpe ratio.** The best of 41 SMA pairs has Sharpe 0.741. If every pair were
+worthless, the best of 41 noisy estimates with the grid's observed spread (standard deviation 0.109)
+would be expected to reach 0.240 by luck alone (Bailey & López de Prado, 2014). The probability that
+the winner's true Sharpe clears that hurdle is **0.953**.
+
+That can look like a contradiction with the out-of-sample result. It is not. The deflated Sharpe ratio
+asks whether the winner beats *zero skill*, and over 2015–2026 almost any rule that is long SPY most
+of the time does. It does not ask whether the winner beats *buy-and-hold*, which had Sharpe 0.71 over
+the same period without any search. The grid's spread is small because the 41 pairs are all variations
+of "mostly long the index", so the luck hurdle is low and the test passes. The walk-forward then shows
+that choosing *which* variation, before seeing the data, adds nothing.
+
+---
+
+## 5. Portfolio optimization findings
 
 **Ledoit-Wolf shrinkage returns δ = 0.1463**, well inside (0, 1): the sample covariance gets roughly
 15% weight on the constant-correlation target. On the synthetic sample data the same estimator
 returned δ = 1.0000, because that data's pairwise correlations were almost perfectly uniform (section
-6). Real stocks are not, and the estimator responds exactly as the theory says it should.
+7). Real stocks are not, and the estimator responds exactly as the theory says it should.
 
 | Asset | GMV (unconstrained) | Tangency (unconstrained) | GMV (long-only) | Max Sharpe (long-only) | Risk parity |
 |---|---|---|---|---|---|
@@ -166,7 +209,7 @@ they are not an allocation recommendation.
 
 ---
 
-## 5. Monte Carlo
+## 6. Monte Carlo
 
 Resampling the momentum strategy's daily returns over a one-year horizon (50,000 paths) gives a
 median outcome of +22.4%, a 19.9% probability of losing money and a 95% terminal VaR of 17.8%.
@@ -177,7 +220,7 @@ names. They are useful for the shape of the risk, not for the level of the retur
 
 ---
 
-## 6. About the bundled sample data
+## 7. About the bundled sample data
 
 The repository ships a synthetic dataset in `sample_data/` so the CLI runs with no network access,
 and CI runs on it. It should not be read as market evidence:
@@ -200,7 +243,7 @@ To reproduce this study or run it on other data, see *Using other data* in the R
 
 ---
 
-## 7. Limitations
+## 8. Limitations
 
 - **Survivorship and selection bias.** Five symbols chosen in 2026, four of them the decade's biggest
   winners. This inflates every long-only and momentum result and is the single biggest caveat here.
@@ -209,9 +252,13 @@ To reproduce this study or run it on other data, see *Using other data* in the R
 - **Flat-start walk-forward** biases a slow crossover rule toward cash (section 3). Carrying signal
   state across test windows, and repeating the study over several train/test lengths, are the natural
   next steps.
-- **No significance test yet.** An out-of-sample Sharpe of 0.19 over 2,375 days is not distinguishable
-  from zero without a bootstrap confidence interval, and the grid search should be penalised with a
-  deflated Sharpe ratio.
+- **Wide error bars.** Even with 2,375 out-of-sample days, the Sharpe interval spans about ±0.6
+  (section 4). The bootstrap block length is a rule of thumb (T^(1/3)), not an estimated optimum, and
+  the deflated Sharpe ratio treats the 41 highly correlated SMA pairs as independent trials.
+- **Adjusted prices get revised.** Re-downloading the same dates from Yahoo a few hours apart changed
+  the adjusted closes of four of the five symbols in the last decimal places, enough to move the
+  in-sample sweep's top Sharpe from 0.73 to 0.74. The artifacts of the reference run pin the exact
+  inputs; reproduce from those rather than from a fresh download.
 - **Costs are a simple parametric model.** Real slippage depends on order type, venue and volatility.
 - **No shorting, no leverage, no position-level risk limits, no intraday data.**
 - **Data from an unofficial API.** Yahoo's chart endpoint has no published terms of service for this

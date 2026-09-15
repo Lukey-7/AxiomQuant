@@ -40,8 +40,8 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 ## Current state (all green)
 
 `main` is green on Linux/GCC, macOS/Apple Clang, Windows/MSVC and a Clang ASan+UBSan build:
-**43 tests** plus an end-to-end CLI run, plus the Python *Data tooling* job. Reference run for every
-number in RESEARCH.md and the README charts: **34924940650** (workflow *Real data*, job *Fetch and
+**51 tests** plus an end-to-end CLI run, plus the Python *Data tooling* job. Reference run for every
+number in RESEARCH.md and the README charts: **34929115002** (workflow *Real data*, job *Fetch and
 analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-09-14). The README's
 *Sample output* section still quotes synthetic-data run **34671037291** (job *Linux (GCC)*).
 
@@ -52,11 +52,12 @@ data/         CSV loader, columnar TimeSeries, MarketDataUniverse (synchronize, 
 indicators/   SMA EMA RSI MACD Bollinger rolling-vol ATR (header-only)
 backtest/     engine (fill timing, cash guard), execution/cost model, portfolio, strategies
 risk/         metrics, VaR/CVaR (historical, Gaussian, Cornish-Fisher), text reports, ASCII charts
-simulation/   deterministic per-path RNG, bootstrap, correlated multi-asset GBM
+simulation/   deterministic per-path RNG (rng.hpp, shared with analysis), bootstrap, correlated GBM
 optimization/ covariance + Ledoit-Wolf, GMV/tangency, constrained QP (FISTA), frontier, risk parity
-analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward
+analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward; significance: stationary
+              block bootstrap of Sharpe (paired), probabilistic and deflated Sharpe ratio
 cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study
-tests/        43 tests; test_support.hpp builds synthetic universes and scripted strategies
+tests/        51 tests; test_support.hpp builds synthetic universes and scripted strategies
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
               test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG)
 docs/         STUDY_GUIDE.md, images/*.svg
@@ -95,9 +96,10 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
    survivorship-biased (use a point-in-time universe, e.g. a Kaggle S&P 500 constituents dataset), and
    flat-start walk-forward biases slow crossovers to cash (10 of 19 folds never traded; add a variant
    that carries signal state across windows).
-2. **Statistical significance for the out-of-sample result.** Stationary block bootstrap over the
-   stitched OOS returns for a Sharpe confidence interval and p-value, plus a deflated Sharpe ratio
-   accounting for the number of configurations tried. Belongs in `analysis/`.
+2. ~~Statistical significance~~ — done (`analysis/significance.*`, RESEARCH.md section 4). OOS Sharpe
+   0.185 has p = 0.27; possible follow-ups: Politis-White automatic block length, and an effective
+   number of trials for the deflated Sharpe ratio (the 41 SMA pairs are highly correlated).
+   Yahoo re-serves slightly different adjusted closes on each download, so always quote one run.
 3. **Cross-validate the optimizer against a reference solver** (`cvxpy` / `PyPortfolioOpt`) in a CI
    job, asserting agreement to ~1e-8 on the constrained problems.
 4. **Benchmark against a reference implementation** (vectorised NumPy) with the script committed, plus
