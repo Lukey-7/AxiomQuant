@@ -40,8 +40,10 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 ## Current state (all green)
 
 `main` is green on Linux/GCC, macOS/Apple Clang, Windows/MSVC and a Clang ASan+UBSan build:
-**43 tests** plus an end-to-end CLI run. Reference CI run for every published number:
-**34671037291** (job *Linux (GCC)*, `ubuntu-latest`, 4 vCPU).
+**43 tests** plus an end-to-end CLI run, plus the Python *Data tooling* job. Reference run for every
+number in RESEARCH.md and the README charts: **34924940650** (workflow *Real data*, job *Fetch and
+analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-09-14). The README's
+*Sample output* section still quotes synthetic-data run **34671037291** (job *Linux (GCC)*).
 
 ### Layout
 
@@ -78,15 +80,21 @@ docs/         STUDY_GUIDE.md, images/*.svg
 `sample_data/` is **synthetic**: its "SPY" rises through the March 2020 crash, ends 2024 at 381
 (real ≈ 586), starts at exactly 320.0000, and all pairwise correlations sit in 0.539–0.578. That last
 point is why Ledoit-Wolf δ clamps to 1.0 on this data — verified against an independent NumPy
-implementation, not a bug. RESEARCH.md says all of this plainly; keep it that way.
+implementation, not a bug. On real prices δ = 0.1463. RESEARCH.md says all of this plainly; keep it
+that way.
+
+Data secrets on the repo: `KAGGLE_API_TOKEN` (set). `TIINGO_API_KEY` is optional and not set. Yahoo
+needs no key but is an unofficial API. The Kaggle path was verified with `camnugent/sandp500`
+(`all_stocks_5yr.csv`) in run 34927316003.
 
 ---
 
 ## Next steps, highest value first
 
-1. **Rerun the whole analysis on real data and rewrite RESEARCH.md around it.** The fetcher and the
-   `Real data` workflow already exist (`workflow_dispatch` or weekly cron). This is the biggest
-   remaining weakness: every current conclusion rests on synthetic prices.
+1. ~~Rerun the analysis on real data~~ — done. Follow-ups it exposed: the five-name universe is
+   survivorship-biased (use a point-in-time universe, e.g. a Kaggle S&P 500 constituents dataset), and
+   flat-start walk-forward biases slow crossovers to cash (10 of 19 folds never traded; add a variant
+   that carries signal state across windows).
 2. **Statistical significance for the out-of-sample result.** Stationary block bootstrap over the
    stitched OOS returns for a Sharpe confidence interval and p-value, plus a deflated Sharpe ratio
    accounting for the number of configurations tried. Belongs in `analysis/`.
