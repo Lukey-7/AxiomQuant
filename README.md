@@ -10,7 +10,8 @@ costs, risk and tail analytics, parallel Monte Carlo, Markowitz portfolio optimi
 estimator, the VaR models, the random number generator — is implemented from first principles, with
 Eigen used only for linear algebra and SQLite for persistence. The point of the project is not to
 show a profitable strategy; it is to build machinery honest enough to tell you when a strategy is
-not profitable. On the bundled data it says exactly that: see **[RESEARCH.md](RESEARCH.md)**.
+not profitable. On 11.7 years of real prices it says exactly that: walk-forward SMA crossover returned
++32.3% out of sample against +254.6% for buy-and-hold SPY. See **[RESEARCH.md](RESEARCH.md)**.
 
 43 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
 AddressSanitizer + UndefinedBehaviorSanitizer on every push.
@@ -25,7 +26,7 @@ bars are what the optimizer believed; the darker bars are what happened next.
 ![Walk-forward in-sample versus out-of-sample Sharpe](docs/images/walk_forward.svg)
 
 Every pair in an in-sample parameter sweep. The best cell is the one the optimizer would have picked
-— note that the *median* cell loses money, which is what a lucky winner looks like.
+— and it only just matches buy-and-hold (Sharpe 0.73 vs 0.71), while 38 of 41 pairs fall short.
 
 ![In-sample SMA parameter sweep](docs/images/parameter_sweep.svg)
 
@@ -38,8 +39,9 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 </details>
 
-Charts are generated from the CLI's own CSV exports by `scripts/make_charts.py`, which uses only the
-Python standard library:
+Charts come from [Real data run 34924940650](https://github.com/Lukey-7/AxiomQuant/actions/runs/34924940650)
+(SPY, AAPL, AMZN, GOOGL, MSFT, 2015-01-02 to 2026-09-14). They are generated from the CLI's own CSV
+exports by `scripts/make_charts.py`, which uses only the Python standard library:
 
 ```bash
 ./build/bin/axiomquant --data sample_data --no-db --export-dir out
@@ -351,16 +353,16 @@ trades a little bias for a large variance reduction, with the intensity estimate
 sweep in O(N log N), not by bisection to a tolerance, so the constraints hold exactly.
 
 **Walk-forward as the headline.** In-sample sweeps are reported, but labelled as what they are. The
-distance between the best in-sample Sharpe (0.44) and the walk-forward result (-0.95) is the most
-informative number the project produces.
+distance between the mean in-sample Sharpe of the chosen parameters (1.03) and what they delivered out
+of sample (0.38), on real prices, is the most informative number the project produces.
 
 ---
 
 ## Limitations
 
 - The bundled `sample_data/` is **synthetic** (its "SPY" rises through the March 2020 crash). It
-  exists so the CLI runs offline. Real conclusions need real data via `--data`.
-- Five symbols, daily bars, five years: too small a sample for statistical confidence.
+  exists so the CLI and CI run offline. RESEARCH.md uses real prices instead.
+- Five symbols, daily bars, 11.7 years: too small a sample for statistical confidence.
 - The universe is fixed, so results are survivorship-biased by construction.
 - Costs are parametric, not a real venue model; no partial fills, no queue position, no borrow costs.
 - Strategies are long-only with no leverage, no shorting, no position-level risk limits.
