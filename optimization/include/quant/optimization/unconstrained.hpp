@@ -45,14 +45,15 @@ public:
     );
 
     /**
-     * @brief Computes Equal Risk Contribution (Risk Parity) portfolio iteratively.
+     * @brief Computes the Equal Risk Contribution (Risk Parity) portfolio iteratively.
+     * @param tol Stop when no coordinate changes by more than tol relative to the largest one.
      */
     [[nodiscard]] static OptimizationResult risk_parity_portfolio(
         const Eigen::VectorXd& expected_returns,
         const Eigen::MatrixXd& cov_matrix,
         double risk_free_rate = 0.02,
-        size_t max_iter = 1000,
-        double tol = 1e-7
+        size_t max_iter = 10000,
+        double tol = 1e-14
     );
 };
 

@@ -1,5 +1,6 @@
 #include "quant/optimization/unconstrained.hpp"
 #include "quant/optimization/portfolio_stats.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
@@ -134,40 +135,32 @@ OptimizationResult UnconstrainedMarkowitz::risk_parity_portfolio(
     double tol
 ) {
     const size_t n = expected_returns.size();
-    // Cyclical coordinate descent for Equal Risk Contribution (Spinu, 2013)
-    // Objective: min sum_i (w_i * (Sigma * w)_i - sigma_p^2 / N)^2
-    // w_i = (sqrt((Sigma * w)_(-i)^2 + 4 * Sigma_{ii} * b_i) - (Sigma * w)_(-i)) / (2 * Sigma_{ii})
-
-    Eigen::VectorXd w = Eigen::VectorXd::Constant(n, 1.0 / static_cast<double>(n));
-    double target_b = 1.0 / static_cast<double>(n); // Target risk budget per asset
+    // Cyclical coordinate descent for Equal Risk Contribution (Spinu, 2013) on the strictly convex
+    //   min_y  0.5 * y^T Sigma y - b * sum_i log(y_i),   b = 1/N,
+    // whose optimality conditions y_i (Sigma y)_i = b are exactly equal risk contributions. Each
+    // coordinate is minimised in closed form (positive root of Sigma_ii y_i^2 + c_i y_i - b = 0, with
+    // c_i = (Sigma y)_i - Sigma_ii y_i). The weights are y / sum(y). Normalising inside the loop would
+    // change the scale the other coordinates were solved at and converge to the wrong point.
+    Eigen::VectorXd y = Eigen::VectorXd::Constant(n, 1.0 / static_cast<double>(n));
+    const double budget = 1.0 / static_cast<double>(n);
 
     bool converged = false;
     for (size_t iter = 0; iter < max_iter; ++iter) {
-        Eigen::VectorXd w_prev = w;
-
+        double max_change = 0.0;
         for (size_t i = 0; i < n; ++i) {
-            double sigma_ii = cov_matrix(i, i);
-            double sigma_w_minus_i = (cov_matrix.row(i).dot(w)) - sigma_ii * w(i);
-
-            // Quadratic formula for positive root of: sigma_ii * w_i^2 + sigma_w_minus_i * w_i - target_b = 0
-            double discriminant = sigma_w_minus_i * sigma_w_minus_i + 4.0 * sigma_ii * target_b;
-            if (discriminant >= 0.0 && sigma_ii > 0.0) {
-                w(i) = (-sigma_w_minus_i + std::sqrt(discriminant)) / (2.0 * sigma_ii);
-            }
+            const double sigma_ii = cov_matrix(i, i);
+            if (!(sigma_ii > 0.0)) continue;
+            const double c = cov_matrix.row(i).dot(y) - sigma_ii * y(i);
+            const double updated = (-c + std::sqrt(c * c + 4.0 * sigma_ii * budget)) / (2.0 * sigma_ii);
+            max_change = std::max(max_change, std::abs(updated - y(i)));
+            y(i) = updated;
         }
-
-        // Normalize weights: sum w_i = 1
-        double sum_w = w.sum();
-        if (sum_w > 1e-12) {
-            w /= sum_w;
-        }
-
-        double diff = (w - w_prev).norm();
-        if (diff < tol) {
+        if (max_change <= tol * y.cwiseAbs().maxCoeff()) {
             converged = true;
             break;
         }
     }
+    const Eigen::VectorXd w = y / y.sum();
 
     OptimizationResult res;
     res.weights = w;

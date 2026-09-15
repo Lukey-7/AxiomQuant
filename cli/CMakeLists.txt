@@ -15,3 +15,13 @@ target_link_libraries(quant_engine_cli PRIVATE
     axiom_eigen
     axiom_openmp
 )
+
+# Prints every optimizer's weights for a problem file; used by scripts/check_optimizer.py in CI.
+add_executable(axiom_optimizer_dump
+    src/optimizer_dump.cpp
+)
+
+target_link_libraries(axiom_optimizer_dump PRIVATE
+    quant_optimization
+    axiom_eigen
+)

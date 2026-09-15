@@ -122,12 +122,18 @@ OptimizationResult ConstrainedQpOptimizer::optimize_risk_aversion(
             break;
         }
 
-        double t_next = 0.5 * (1.0 + std::sqrt(1.0 + 4.0 * t * t));
-        double beta = (t - 1.0) / t_next;
-        y = w + beta * (w - w_prev);
+        if ((y - w).dot(w - w_prev) > 0.0) {
+            // Momentum points uphill: restart the acceleration from the current iterate.
+            t = 1.0;
+            y = w;
+        } else {
+            double t_next = 0.5 * (1.0 + std::sqrt(1.0 + 4.0 * t * t));
+            double beta = (t - 1.0) / t_next;
+            y = w + beta * (w - w_prev);
+            t = t_next;
+        }
 
         w_prev = w;
-        t = t_next;
     }
 
     OptimizationResult res;
@@ -154,49 +160,51 @@ OptimizationResult ConstrainedQpOptimizer::maximum_sharpe_portfolio(
     const Eigen::VectorXd& expected_returns,
     const Eigen::MatrixXd& cov_matrix
 ) const {
-    // The constrained tangency portfolio lies on the constrained frontier traced by the risk-aversion
-    // parameter gamma. Stage 1: coarse log-spaced scan (plus gamma = 0, the GMV end of the frontier).
-    // Stage 2: golden-section refinement of log10(gamma) around the best grid point.
-    const size_t grid_steps = 120;
-    const double log_min = -3.0; // 10^-3
-    const double log_max = 2.5;  // 10^2.5 ~ 316
-    const double grid_h = (log_max - log_min) / static_cast<double>(grid_steps);
-
-    auto solve_at = [&](double log_gamma) {
+    const auto solve_at = [&](double log_gamma) {
         return optimize_risk_aversion(expected_returns, cov_matrix, std::pow(10.0, log_gamma));
     };
+    // Tangency condition h(gamma) = gamma * (return - rf) - variance: negative towards the GMV end,
+    // positive once the frontier's slope from the risk-free rate is matched.
+    const auto tangency_gap = [&](double log_gamma, const OptimizationResult& r) {
+        return std::pow(10.0, log_gamma) * (r.expected_return - config_.risk_free_rate) - r.volatility * r.volatility;
+    };
+
+    const size_t grid_steps = 100;
+    const double log_min = -6.0;
+    const double log_max = 4.0;
+    const double grid_h = (log_max - log_min) / static_cast<double>(grid_steps);
 
     OptimizationResult best_result = optimize_risk_aversion(expected_returns, cov_matrix, 0.0);
-    double best_log_gamma = log_min;
-    for (size_t i = 0; i <= grid_steps; ++i) {
+    double prev_log_gamma = log_min;
+    OptimizationResult prev = solve_at(log_min);
+    double prev_gap = tangency_gap(log_min, prev);
+    bool bracketed = false;
+    double lo = 0.0, hi = 0.0;
+    if (prev.sharpe_ratio > best_result.sharpe_ratio) best_result = prev;
+
+    for (size_t i = 1; i <= grid_steps; ++i) {
         const double log_gamma = log_min + static_cast<double>(i) * grid_h;
         auto candidate = solve_at(log_gamma);
-        if (candidate.sharpe_ratio > best_result.sharpe_ratio) {
-            best_result = std::move(candidate);
-            best_log_gamma = log_gamma;
+        const double gap = tangency_gap(log_gamma, candidate);
+        if (!bracketed && prev_gap < 0.0 && gap >= 0.0) {
+            bracketed = true;
+            lo = prev_log_gamma;
+            hi = log_gamma;
         }
+        if (candidate.sharpe_ratio > best_result.sharpe_ratio) best_result = candidate;
+        prev_log_gamma = log_gamma;
+        prev_gap = gap;
     }
 
-    constexpr double inv_phi = 0.6180339887498949; // 1 / golden ratio
-    double a = std::max(log_min, best_log_gamma - grid_h);
-    double b = std::min(log_max, best_log_gamma + grid_h);
-    double c = b - inv_phi * (b - a);
-    double d = a + inv_phi * (b - a);
-    auto fc = solve_at(c);
-    auto fd = solve_at(d);
-    for (int iter = 0; iter < 40 && (b - a) > 1e-9; ++iter) {
-        if (fc.sharpe_ratio > fd.sharpe_ratio) {
-            b = d; d = c; fd = std::move(fc);
-            c = b - inv_phi * (b - a);
-            fc = solve_at(c);
-        } else {
-            a = c; c = d; fc = std::move(fd);
-            d = a + inv_phi * (b - a);
-            fd = solve_at(d);
+    if (bracketed) {
+        for (int iter = 0; iter < 200 && (hi - lo) > 1e-14; ++iter) {
+            const double mid = 0.5 * (lo + hi);
+            if (tangency_gap(mid, solve_at(mid)) < 0.0) lo = mid;
+            else hi = mid;
         }
-    }
-    for (auto* cand : {&fc, &fd}) {
-        if (cand->sharpe_ratio > best_result.sharpe_ratio) best_result = *cand;
+        auto root = solve_at(0.5 * (lo + hi));
+        // The root is the exact tangency point; the grid point can only match it up to rounding.
+        if (root.sharpe_ratio >= best_result.sharpe_ratio - 1e-12) best_result = std::move(root);
     }
 
     best_result.method = "Constrained Max Sharpe (Tangency)";

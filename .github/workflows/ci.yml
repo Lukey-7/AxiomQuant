@@ -15,6 +15,20 @@ jobs:
       - name: Unit tests (offline)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
 
+  optimizer-crosscheck:
+    name: Optimizer vs reference solver
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the optimizer dump tool
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target axiom_optimizer_dump --parallel
+      - name: Install reference solvers
+        run: python3 -m pip install --quiet numpy cvxpy clarabel
+      - name: Compare against cvxpy / Clarabel and closed forms
+        run: python3 scripts/check_optimizer.py --binary build/bin/axiom_optimizer_dump --tol 1e-8
+
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}

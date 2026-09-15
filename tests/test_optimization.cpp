@@ -203,3 +203,46 @@ TEST_CASE(TestOptimization_LedoitWolf_MatchesReferenceImplementation) {
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(cov);
     for (int i = 0; i < N; ++i) EXPECT_TRUE(solver.eigenvalues()(i) > 0.0);
 }
+
+TEST_CASE(TestOptimization_RiskParity_EqualizesRiskContributions) {
+    Eigen::VectorXd mu(4);
+    mu << 0.10, 0.08, 0.12, 0.05;
+    Eigen::MatrixXd cov(4, 4);
+    cov << 0.090, 0.030, 0.020, 0.004,
+           0.030, 0.060, 0.015, 0.003,
+           0.020, 0.015, 0.160, 0.010,
+           0.004, 0.003, 0.010, 0.010;
+
+    const auto rp = quant::optimization::UnconstrainedMarkowitz::risk_parity_portfolio(mu, cov);
+    EXPECT_TRUE(rp.converged);
+    EXPECT_NEAR(rp.weights.sum(), 1.0, 1e-12);
+
+    // Risk contribution of asset i: w_i (Sigma w)_i / (w' Sigma w). Every asset must carry 1/N.
+    const Eigen::VectorXd marginal = cov * rp.weights;
+    const double variance = rp.weights.dot(marginal);
+    for (Eigen::Index i = 0; i < 4; ++i) {
+        EXPECT_TRUE(rp.weights(i) > 0.0);
+        EXPECT_NEAR(rp.weights(i) * marginal(i) / variance, 0.25, 1e-10);
+    }
+}
+
+TEST_CASE(TestOptimization_ConstrainedMaxSharpe_MatchesTangencyWhenBoundsAreSlack) {
+    Eigen::VectorXd mu(3);
+    mu << 0.12, 0.10, 0.07;
+    Eigen::MatrixXd cov(3, 3);
+    cov << 0.040, 0.006, 0.004,
+           0.006, 0.030, 0.005,
+           0.004, 0.005, 0.020;
+
+    const auto exact = quant::optimization::UnconstrainedMarkowitz::maximum_sharpe_portfolio(mu, cov, 0.02);
+    for (Eigen::Index i = 0; i < 3; ++i) EXPECT_TRUE(exact.weights(i) > 0.05 && exact.weights(i) < 0.9);
+
+    quant::optimization::ConstrainedQpConfig cfg;
+    cfg.min_weight = 0.0;
+    cfg.max_weight = 1.0;
+    cfg.risk_free_rate = 0.02;
+    const auto constrained = quant::optimization::ConstrainedQpOptimizer(cfg).maximum_sharpe_portfolio(mu, cov);
+    for (Eigen::Index i = 0; i < 3; ++i) {
+        EXPECT_NEAR(constrained.weights(i), exact.weights(i), 1e-9);
+    }
+}
