@@ -64,6 +64,7 @@ jobs:
           fi
           tail -5 clang-tidy.log
       - name: Upload reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: static-analysis
