@@ -1,0 +1,20 @@
+# Correctness and performance checks only: no stylistic rewrites, since clang-format owns layout.
+# Eigen and the standard library mix signed and unsigned index types, so the narrowing and
+# swappable-parameter checks are off rather than suppressed one by one.
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  misc-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-emplace,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner,
+  -misc-use-anonymous-namespace
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/(analysis|backtest|cli|data|indicators|optimization|risk|simulation)/.*'
+FormatStyle: file

@@ -34,6 +34,61 @@ jobs:
           name: benchmark
           path: bench-out/
 
+  static-analysis:
+    name: clang-format and clang-tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format clang-tidy
+      - name: Formatting
+        run: |
+          mapfile -t files < <(git ls-files '*.cpp' '*.hpp' | grep -v '^third_party/')
+          clang-format -i "${files[@]}"
+          git diff > clang-format.patch
+          if [ -s clang-format.patch ]; then
+            echo "::warning::clang-format would change $(git diff --name-only | wc -l) files"
+            git diff --stat
+          fi
+          git checkout -- .
+      - name: Static analysis
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          mapfile -t files < <(git ls-files '*.cpp' | grep -v '^third_party/')
+          clang-tidy -p build "${files[@]}" > clang-tidy.log 2>&1 || true
+          grep -c 'warning:' clang-tidy.log || true
+          tail -40 clang-tidy.log
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis
+          path: |
+            clang-format.patch
+            clang-tidy.log
+
+  coverage:
+    name: Test coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gcovr
+        run: python3 -m pip install --quiet gcovr
+      - name: Build instrumented and run tests
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAXIOM_ENABLE_OPENMP=OFF             "-DCMAKE_CXX_FLAGS=--coverage -O0" "-DCMAKE_EXE_LINKER_FLAGS=--coverage"
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+      - name: Report
+        run: |
+          mkdir -p coverage
+          gcovr --root . --filter '(analysis|backtest|data|indicators|optimization|risk|simulation)/'             --exclude-unreachable-branches --print-summary             --html-details coverage/index.html --txt coverage/summary.txt --json-summary coverage/summary.json
+          cat coverage/summary.txt
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
   optimizer-crosscheck:
     name: Optimizer vs reference solver
     runs-on: ubuntu-latest

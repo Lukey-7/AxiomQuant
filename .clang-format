@@ -1,0 +1,24 @@
+# Matches the existing style: 4 spaces, 110-column lines, attached braces, reference/pointer bound
+# to the type. Run: clang-format -i $(git ls-files '*.cpp' '*.hpp' ':!third_party/*')
+---
+Language: Cpp
+BasedOnStyle: Google
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 110
+AccessModifierOffset: -4
+PointerAlignment: Left
+ReferenceAlignment: Left
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
+BinPackArguments: true
+BinPackParameters: false
+AlignAfterOpenBracket: Align
+AlwaysBreakTemplateDeclarations: Yes
+IncludeBlocks: Preserve
+SortIncludes: Never
+SpacesBeforeTrailingComments: 3
+KeepEmptyLinesAtTheStartOfBlocks: false
