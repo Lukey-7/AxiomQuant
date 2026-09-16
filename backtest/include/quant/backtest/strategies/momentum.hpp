@@ -1,6 +1,7 @@
 #pragma once
 
 #include "quant/backtest/strategy.hpp"
+#include "quant/data/membership.hpp"
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -18,6 +19,11 @@ namespace quant::backtest::strategies {
  * weight and every other position is liquidated. With `require_positive_momentum`, assets whose
  * trailing return is not positive are excluded and the unused capital stays in cash
  * (a "dual momentum" overlay).
+ *
+ * With a MembershipCalendar attached, only symbols that belonged to the index on the rebalance date
+ * are ranked, and positions in symbols that have since left it are closed. Without one, every symbol
+ * in the universe is eligible on every date, which is survivorship-biased whenever the universe was
+ * chosen with hindsight.
  */
 class MultiAssetMomentumStrategy : public Strategy {
 public:
@@ -36,6 +42,9 @@ public:
           top_k_(top_k),
           target_invested_pct_(target_invested_pct),
           require_positive_momentum_(require_positive_momentum) {}
+
+    /// Restricts ranking to point-in-time index members. An empty calendar means "no restriction".
+    void set_membership(quant::data::MembershipCalendar calendar) { membership_ = std::move(calendar); }
 
     [[nodiscard]] std::string get_name() const override {
         return std::string(require_positive_momentum_ ? "DualMomentum" : "CrossSectionalMomentum") +
@@ -64,6 +73,7 @@ public:
         for (const auto& ticker : tickers_) {
             const auto& c = closes_[ticker];
             if (timeline_index >= c.size() || !snapshot.has_ticker(ticker)) continue;
+            if (!membership_.is_member(ticker, snapshot.date)) continue;
             const double past = c[timeline_index - lookback_period_];
             const double now = c[timeline_index];
             if (!(past > 0.0) || !(now > 0.0)) continue;
@@ -125,6 +135,7 @@ private:
     size_t top_k_;
     double target_invested_pct_;
     bool require_positive_momentum_;
+    quant::data::MembershipCalendar membership_;
     std::vector<std::string> tickers_;
     std::unordered_map<std::string, std::vector<double>> closes_;
     std::vector<RankedAsset> last_ranking_;

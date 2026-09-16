@@ -38,7 +38,8 @@ std::vector<CostSensitivityRow> sweep_costs(const data::MarketDataUniverse& univ
         auto strategies = make_strategies();
         if (rows.empty()) rows.resize(strategies.size());
         if (rows.size() != strategies.size()) {
-            throw std::invalid_argument("sweep_costs: the factory must return the same strategies every call");
+            throw std::invalid_argument(
+                "sweep_costs: the factory must return the same strategies every call");
         }
         for (size_t i = 0; i < strategies.size(); ++i) {
             rows[i].strategy_name = strategies[i]->get_name();

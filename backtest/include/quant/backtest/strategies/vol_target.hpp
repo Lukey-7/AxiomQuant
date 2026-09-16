@@ -41,8 +41,8 @@ public:
     }
 
     void on_start(Portfolio& /*portfolio*/, const quant::data::MarketDataUniverse& universe) override {
-        volatility_ =
-            quant::indicators::RollingVolatility::calculate(universe.get_aligned_closes(ticker_), vol_window_);
+        volatility_ = quant::indicators::RollingVolatility::calculate(universe.get_aligned_closes(ticker_),
+                                                                      vol_window_);
     }
 
     void on_bar(size_t timeline_index,

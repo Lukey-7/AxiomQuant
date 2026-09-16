@@ -1,4 +1,5 @@
 #include "quant/data/csv_loader.hpp"
+#include "quant/data/membership.hpp"
 #include "quant/data/universe.hpp"
 #include "quant/data/sqlite_storage.hpp"
 #include "quant/indicators/sma.hpp"
@@ -69,6 +70,8 @@ struct Options {
     double block{1.0};
     size_t wf_train{504};
     size_t wf_test{126};
+    fs::path members_path;
+    bool has_members{false};
     fs::path db_path{"axiomquant.db"};
     bool use_db{true};
     bool has_export{false};
@@ -92,6 +95,7 @@ void print_usage(std::ostream& os) {
           "  --seed <n>            Monte Carlo and bootstrap seed (default: 42)\n"
           "  --bootstrap <n>       Bootstrap resamples for the significance test (default: 10000)\n"
           "  --block <days>        Monte Carlo bootstrap mean block length (default: 1 = i.i.d.)\n"
+          "  --members <csv>       Point-in-time index membership (ticker,start_date,end_date)\n"
           "  --wf-train <bars>     Walk-forward training window (default: 504)\n"
           "  --wf-test <bars>      Walk-forward test window (default: 126)\n"
           "  --db <path>           SQLite database file (default: axiomquant.db)\n"
@@ -144,7 +148,10 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--seed") opt.seed = parse_uint(arg, value());
         else if (arg == "--bootstrap") opt.bootstrap = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--block") opt.block = parse_double(arg, value());
-        else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
+        else if (arg == "--members") {
+            opt.members_path = value();
+            opt.has_members = true;
+        } else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-test") opt.wf_test = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--db") {
             opt.db_path = value();
@@ -398,14 +405,25 @@ int run_pipeline(const Options& opt) {
     backtest::BacktestEngine engine(universe, backtest::Portfolio(opt.capital),
                                     backtest::ExecutionModel(exec_cfg), engine_cfg);
 
+    // Point-in-time index membership, when supplied: the momentum strategy may only rank symbols
+    // that were index members on the day it rebalances.
+    data::MembershipCalendar membership;
+    if (opt.has_members) {
+        membership = data::MembershipCalendar::load(opt.members_path);
+        std::cout << "  Membership calendar: " << membership.ticker_count() << " symbols from "
+                  << opt.members_path.string() << "\n";
+    }
+
     // Strategies are stateful, so each pass over the data needs a fresh set.
-    auto make_strategies = [&ticker]() {
+    auto make_strategies = [&ticker, &membership]() {
         std::vector<std::unique_ptr<backtest::Strategy>> built;
         built.push_back(std::make_unique<backtest::strategies::BuyAndHoldStrategy>(ticker, 0.99));
         built.push_back(std::make_unique<backtest::strategies::SmaCrossoverStrategy>(ticker, 20, 50, 0.95));
         built.push_back(
             std::make_unique<backtest::strategies::RsiMeanReversionStrategy>(ticker, 14, 30.0, 70.0, 0.95));
-        built.push_back(std::make_unique<backtest::strategies::MultiAssetMomentumStrategy>(60, 20, 2, 0.95));
+        auto momentum = std::make_unique<backtest::strategies::MultiAssetMomentumStrategy>(60, 20, 2, 0.95);
+        momentum->set_membership(membership);
+        built.push_back(std::move(momentum));
         built.push_back(std::make_unique<backtest::strategies::VolatilityTargetStrategy>(ticker, 0.10, 20));
         return built;
     };

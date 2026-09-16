@@ -47,8 +47,11 @@ jobs:
           sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-tidy
       - name: Formatting
         run: |
+          # Use the pinned wheel's binary, not whatever clang-format the runner image ships.
+          CF=$(python3 -c "import clang_format, pathlib; print(pathlib.Path(clang_format.__file__).parent / 'data' / 'bin' / 'clang-format')")
+          "$CF" --version
           mapfile -t files < <(git ls-files '*.cpp' '*.hpp' | grep -v '^third_party/')
-          clang-format -i "${files[@]}"
+          "$CF" -i "${files[@]}"
           git diff > clang-format.patch
           if [ -s clang-format.patch ]; then
             echo "::error::clang-format would change $(git diff --name-only | wc -l) files; the patch is in the static-analysis artifact"

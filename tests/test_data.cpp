@@ -2,9 +2,12 @@
 #include <string>
 #include "quant/data/types.hpp"
 #include "quant/data/csv_loader.hpp"
+#include "quant/data/membership.hpp"
 #include "quant/data/universe.hpp"
 #include "quant/data/sqlite_storage.hpp"
 #include <filesystem>
+#include <fstream>
+#include <stdexcept>
 
 TEST_CASE(TestData_TimeSeries_Returns) {
     quant::data::TimeSeries ts("TEST");
@@ -143,4 +146,53 @@ TEST_CASE(TestData_SliceKeepsWindowOfTimeline) {
     EXPECT_EQ(window.get_timeline().front(), uni.get_timeline()[3]);
     EXPECT_EQ(window.get_timeline().back(), uni.get_timeline()[6]);
     EXPECT_NEAR(window.get_snapshot(0).get_bar("AAPL").close, 13.0, 1e-9);
+}
+
+TEST_CASE(TestData_MembershipCalendar_PointInTimeMembership) {
+    quant::data::MembershipCalendar calendar;
+    EXPECT_TRUE(calendar.empty());
+    EXPECT_TRUE(calendar.is_member("ANY", "2020-01-02"));   // an empty calendar restricts nothing
+
+    calendar.add_spell("AAPL", "1982-11-30", "");             // still a member
+    calendar.add_spell("LEH", "1994-09-08", "2008-09-15");    // left the index
+    calendar.add_spell("NFLX", "2002-05-23", "2004-01-01");   // left ...
+    calendar.add_spell("nflx", "2010-12-20", "");             // ... and rejoined (case-insensitive)
+
+    EXPECT_EQ(calendar.ticker_count(), 3u);
+    EXPECT_TRUE(calendar.is_member("AAPL", "2020-01-02"));
+    EXPECT_FALSE(calendar.is_member("AAPL", "1980-01-02"));
+
+    EXPECT_TRUE(calendar.is_member("LEH", "2008-09-15"));   // end date is inclusive
+    EXPECT_FALSE(calendar.is_member("LEH", "2008-09-16"));
+    EXPECT_FALSE(calendar.is_member("LEH", "1994-09-07"));
+
+    EXPECT_TRUE(calendar.is_member("NFLX", "2003-06-01"));
+    EXPECT_FALSE(calendar.is_member("NFLX", "2008-01-01"));   // between spells
+    EXPECT_TRUE(calendar.is_member("NFLX", "2015-01-01"));
+
+    EXPECT_FALSE(calendar.is_member("UNKNOWN", "2015-01-01"));
+
+    const auto members_2003 = calendar.members_on("2003-06-01");   // AAPL, LEH and NFLX, sorted
+    EXPECT_EQ(members_2003.size(), 3u);
+    EXPECT_TRUE(members_2003[0] == "AAPL" && members_2003[1] == "LEH" && members_2003[2] == "NFLX");
+    EXPECT_EQ(calendar.members_on("2009-01-01").size(), 1u);
+}
+
+TEST_CASE(TestData_MembershipCalendar_LoadsCsv) {
+    const auto path = std::filesystem::temp_directory_path() / "axiom_members_test.csv";
+    {
+        std::ofstream out(path);
+        out << "Ticker,Start_Date,End_Date\n";
+        out << "AAPL,1982-11-30,\n";
+        out << "# comment line\n";
+        out << "LEH,1994-09-08,2008-09-15\n";
+        out << "\n";
+    }
+    const auto calendar = quant::data::MembershipCalendar::load(path);
+    EXPECT_EQ(calendar.ticker_count(), 2u);
+    EXPECT_TRUE(calendar.is_member("AAPL", "2001-01-01"));
+    EXPECT_FALSE(calendar.is_member("LEH", "2010-01-01"));
+    std::filesystem::remove(path);
+
+    EXPECT_THROW((void)quant::data::MembershipCalendar::load("does_not_exist_12345.csv"), std::runtime_error);
 }

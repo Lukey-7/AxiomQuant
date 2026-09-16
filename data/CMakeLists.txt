@@ -1,5 +1,6 @@
 add_library(quant_data STATIC
     src/csv_loader.cpp
+    src/membership.cpp
     src/universe.cpp
     src/sqlite_storage.cpp
 )

@@ -211,6 +211,7 @@ Options: `-DAXIOM_BUILD_TESTS=OFF`, `-DAXIOM_BUILD_CLI=OFF`, `-DAXIOM_ENABLE_OPE
 --seed <n>            Monte Carlo and bootstrap seed             (default: 42)
 --bootstrap <n>       bootstrap resamples, significance test     (default: 10000)
 --block <days>        Monte Carlo bootstrap mean block length    (default: 1 = i.i.d.)
+--members <csv>       point-in-time index membership            (default: none)
 --wf-train <bars>     walk-forward training window               (default: 504)
 --wf-test <bars>      walk-forward test window                   (default: 126)
 --db <path> | --no-db SQLite persistence                         (default: axiomquant.db)
@@ -249,6 +250,11 @@ python3 scripts/fetch_data.py import ~/Downloads/all_stocks_5yr.csv --out kaggle
 
 # Or let it download the Kaggle dataset (pip install kaggle; KAGGLE_API_TOKEN).
 python3 scripts/fetch_data.py kaggle camnugent/sandp500 --out kaggle_data --tickers AAPL MSFT AMZN
+
+# Index membership as it was on each date, so cross-sectional strategies cannot rank symbols that
+# were not in the index yet. Accepts dated snapshots of the member list or an added/removed log.
+python3 scripts/make_membership.py sp500_history.csv --out members.csv
+./build/bin/axiomquant --data kaggle_data --members members.csv
 
 # A seeded, correlated GBM universe, when you want data with known properties.
 python3 scripts/fetch_data.py synthetic --out synth_data --tickers AAA BBB CCC --seed 7 --correlation 0.3
