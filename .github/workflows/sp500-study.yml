@@ -58,14 +58,16 @@ jobs:
           cap = int(os.environ["MAX_SYMBOLS"])
           if cap > 0:
               members = members[:cap]
-          open("symbols.txt", "w").write(" ".join(members))
+          open("symbols.txt", "w").write(" ".join(members) + chr(10))
           print(f"{len(members)} symbols were S&P 500 members at some point since {start}")
           PY
 
       - name: Download prices (delisted symbols are expected to fail)
         shell: bash
         run: |
-          read -ra SYMBOLS < symbols.txt
+          # `read` reports end-of-file even when it read a full line, and `set -e` would stop here.
+          read -ra SYMBOLS < symbols.txt || true
+          echo "fetching ${#SYMBOLS[@]} member symbols plus $BENCHMARK"
           python3 scripts/fetch_data.py live --out sp500_data --start "$START" --allow-missing \
             --tickers "${SYMBOLS[@]}" "$BENCHMARK"
           ls sp500_data | wc -l
