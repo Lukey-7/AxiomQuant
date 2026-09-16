@@ -140,9 +140,9 @@ TEST_CASE(TestMonteCarlo_BlockBootstrap_PreservesContiguousBlocks) {
 }
 
 TEST_CASE(TestMonteCarlo_BlockBootstrap_IsDeterministicAndThreadIndependent) {
-    std::vector<double> history;
-    for (int i = 0; i < 300; ++i)
-        history.push_back(0.0004 + 0.01 * std::sin(0.3 * i));
+    std::vector<double> history(300);
+    for (size_t i = 0; i < history.size(); ++i)
+        history[i] = 0.0004 + 0.01 * std::sin(0.3 * static_cast<double>(i));
 
     quant::simulation::MonteCarloConfig cfg;
     cfg.num_simulations = 500;
