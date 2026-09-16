@@ -11,7 +11,9 @@ estimator, the VaR models, the random number generator — is implemented from f
 Eigen used only for linear algebra and SQLite for persistence. The point of the project is not to
 show a profitable strategy; it is to build machinery honest enough to tell you when a strategy is
 not profitable. On 11.7 years of real prices it says exactly that: walk-forward SMA crossover returned
-+32.3% out of sample against +254.6% for buy-and-hold SPY. See **[RESEARCH.md](RESEARCH.md)**.
++32.3% out of sample against +254.6% for buy-and-hold SPY. See **[RESEARCH.md](RESEARCH.md)**, and
+**[docs/SP500_STUDY.md](docs/SP500_STUDY.md)** for what happens to cross-sectional momentum when it may
+only hold stocks that were really in the S&P 500 that day: +957.7% becomes +106.6%.
 
 64 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
 AddressSanitizer + UndefinedBehaviorSanitizer on every push. Two further jobs check the engine against

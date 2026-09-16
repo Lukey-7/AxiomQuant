@@ -306,9 +306,10 @@ To reproduce this study or run it on other data, see *Using other data* in the R
 
 - **Survivorship and selection bias.** Five symbols chosen in 2026, four of them the decade's biggest
   winners. This inflates every long-only and momentum result and is the single biggest caveat here.
-  The machinery to remove it now exists (`--members` with a point-in-time constituents file, built by
-  `scripts/make_membership.py`); running the study on a real S&P 500 membership history is the next
-  step, and the numbers above should be expected to fall when it happens.
+  [docs/SP500_STUDY.md](docs/SP500_STUDY.md) now measures exactly this: on a point-in-time S&P 500
+  universe (771 member symbols, 605 with usable history), cross-sectional momentum falls from +957.7%
+  to +106.6% and its worst drawdown rises from 38.9% to 75.6%. The single-symbol strategies in this
+  note are unaffected, but the momentum row above should be read as the biased number it is.
 - **One market regime, mostly up.** 2015–2026 contains sharp drawdowns (2018, 2020, 2022) but a
   strongly positive trend overall. A trend-following rule would be judged differently over 2000–2012.
 - **The test protocol itself matters** (section 3): carrying the position instead of restarting flat

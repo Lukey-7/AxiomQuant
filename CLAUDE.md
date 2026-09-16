@@ -67,7 +67,7 @@ tests/        64 tests; test_support.hpp builds synthetic universes and scripted
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
               test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG),
               check_optimizer.py (cvxpy cross-check), benchmark.py (NumPy benchmark + SVG)
-docs/         STUDY_GUIDE.md, images/*.svg
+docs/         STUDY_GUIDE.md, SP500_STUDY.md (point-in-time survivorship study), images/*.svg
 ```
 
 ### Design decisions worth preserving
@@ -114,9 +114,11 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
 5. ~~Polish~~ - done: clang-format + clang-tidy + coverage jobs, block bootstrap (`--block`),
    cost-sensitivity sweep, volatility targeting (best real-data finding: same Sharpe as buy-and-hold
    with 13.2% drawdown instead of 33.4%).
-6. ~~Point-in-time universe~~ - the machinery is done (`MembershipCalendar`, `--members`,
-   `scripts/make_membership.py`) but **the study still runs on the five hindsight-chosen symbols**.
-   Running it on a real S&P 500 membership history from Kaggle is the biggest remaining weakness.
+6. ~~Point-in-time universe~~ - done: the *S&P 500 study* workflow runs the pipeline on the real
+   membership record (fja05680/sp500), 771 member symbols since 2015 of which 605 still have prices.
+   Momentum falls from +957.7% to +106.6% (Sharpe 0.88 -> 0.31, MaxDD 38.9% -> 75.6%).
+   See docs/SP500_STUDY.md, run **35059578040**. RESEARCH.md still uses the five-symbol universe for
+   its single-name strategies, which the study confirms are unaffected.
 7. ~~Fairer walk-forward~~ - done (`carry_position`, `sweep_walk_forward`; RESEARCH.md section 3).
 8. ~~Data-driven significance settings~~ - done (Politis-White block length, `effective_trials`).
 9. Remaining ideas: cluster-based effective trials, a longer history (from 2000) covering a decade
