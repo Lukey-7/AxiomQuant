@@ -12,9 +12,12 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 1. **Nothing in the repository may attribute the work to an AI assistant.** No commit trailers, no
    `Co-Authored-By`, no mentions in the README, RESEARCH, code comments or docs. This file is working
    context only; keep its content about the project.
-2. **There is no C++ compiler or CMake on the development machine.** Do not try to build locally.
-   Every change is verified by GitHub Actions. Expect the first push of any large change to fail to
-   compile, and budget a fix round.
+2. **Build and test locally before pushing.** MSYS2/UCRT64 provides GCC, CMake, Ninja, clang-format
+   and clang-tidy at `C:\msys64\ucrt64\bin` (add it to PATH). `cmake -S . -B build -G Ninja
+   -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel` takes about a minute;
+   `./build/bin/quant_tests.exe` runs the suite. clang-format is pinned via pip (21.1.2) so local and
+   CI formatting agree - run the pip binary, not the MSYS2 one, which is a different major version.
+   Pushing a broken commit emails the owner on every failed run, so verify locally first.
 3. **Every number in the README and RESEARCH.md must come from an actual CI run**, and the run and
    runner must be named. Nothing invented, nothing remembered from a previous run. If a figure cannot
    be traced to a run, remove it.
@@ -40,9 +43,10 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 ## Current state (all green)
 
 `main` is green on Linux/GCC, macOS/Apple Clang, Windows/MSVC and a Clang ASan+UBSan build:
-**53 tests** plus an end-to-end CLI run, plus the *Data tooling*, *Optimizer vs reference solver* and
-*Benchmark vs NumPy* jobs. Reference run for every
-number in RESEARCH.md and the README charts: **34930622057** (workflow *Real data*, job *Fetch and
+**64 tests** plus an end-to-end CLI run, plus the *Data tooling*, *Optimizer vs reference solver*,
+*Benchmark vs NumPy*, *clang-format and clang-tidy* and *Test coverage* (80% line floor, currently
+86%) jobs. Reference run for every
+number in RESEARCH.md and the README charts: **35057670453** (workflow *Real data*, job *Fetch and
 analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-09-14). The README's
 *Sample output* section still quotes synthetic-data run **34671037291** (job *Linux (GCC)*).
 
@@ -59,7 +63,7 @@ analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward; signi
               block bootstrap of Sharpe (paired), probabilistic and deflated Sharpe ratio
 cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study;
               axiom_optimizer_dump and axiom_bench feed the two cross-check/benchmark CI jobs
-tests/        53 tests; test_support.hpp builds synthetic universes and scripted strategies
+tests/        64 tests; test_support.hpp builds synthetic universes and scripted strategies
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
               test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG),
               check_optimizer.py (cvxpy cross-check), benchmark.py (NumPy benchmark + SVG)
@@ -107,8 +111,16 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
    reference solver*). It found and fixed a risk-parity bug; solver accuracy is now ~1e-11.
 4. ~~Benchmark against vectorised NumPy~~ — done (`scripts/benchmark.py`, `cli/src/bench.cpp`, CI job
    *Benchmark vs NumPy*, README Performance). 1.4-3.7x single-threaded, 3.3-10.8x on 4 threads.
-5. **Polish:** `clang-format` + `clang-tidy` in CI, coverage reporting, block bootstrap in the
-   simulation module, cost-sensitivity sweep, volatility-targeted position sizing.
+5. ~~Polish~~ - done: clang-format + clang-tidy + coverage jobs, block bootstrap (`--block`),
+   cost-sensitivity sweep, volatility targeting (best real-data finding: same Sharpe as buy-and-hold
+   with 13.2% drawdown instead of 33.4%).
+6. ~~Point-in-time universe~~ - the machinery is done (`MembershipCalendar`, `--members`,
+   `scripts/make_membership.py`) but **the study still runs on the five hindsight-chosen symbols**.
+   Running it on a real S&P 500 membership history from Kaggle is the biggest remaining weakness.
+7. ~~Fairer walk-forward~~ - done (`carry_position`, `sweep_walk_forward`; RESEARCH.md section 3).
+8. ~~Data-driven significance settings~~ - done (Politis-White block length, `effective_trials`).
+9. Remaining ideas: cluster-based effective trials, a longer history (from 2000) covering a decade
+   that was bad for buy-and-hold, and intraday or higher-frequency data.
 
 ## Commands
 

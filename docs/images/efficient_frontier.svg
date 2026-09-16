@@ -5,18 +5,18 @@
 <line x1="78" y1="398.0" x2="874" y2="398.0" stroke="#e4e8ec"/>
 <text x="68.0" y="402.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">20.8%</text>
 <line x1="78" y1="340.3" x2="874" y2="340.3" stroke="#e4e8ec"/>
-<text x="68.0" y="344.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">22.1%</text>
+<text x="68.0" y="344.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">22.0%</text>
 <line x1="78" y1="282.7" x2="874" y2="282.7" stroke="#e4e8ec"/>
-<text x="68.0" y="286.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">23.4%</text>
+<text x="68.0" y="286.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">23.3%</text>
 <line x1="78" y1="225.0" x2="874" y2="225.0" stroke="#e4e8ec"/>
-<text x="68.0" y="229.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">24.6%</text>
+<text x="68.0" y="229.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">24.5%</text>
 <line x1="78" y1="167.3" x2="874" y2="167.3" stroke="#e4e8ec"/>
-<text x="68.0" y="171.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">25.9%</text>
+<text x="68.0" y="171.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">25.8%</text>
 <line x1="78" y1="109.7" x2="874" y2="109.7" stroke="#e4e8ec"/>
-<text x="68.0" y="113.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">27.2%</text>
+<text x="68.0" y="113.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">27.1%</text>
 <line x1="78" y1="52.0" x2="874" y2="52.0" stroke="#e4e8ec"/>
-<text x="68.0" y="56.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">28.4%</text>
-<path d="M155.0,364.5 L155.0,364.4 L155.0,364.3 L155.0,364.2 L155.0,364.1 L155.0,364.0 L155.1,363.8 L155.1,363.5 L155.2,363.0 L155.3,362.4 L155.6,361.6 L156.1,360.4 L157.2,358.7 L159.3,356.4 L163.5,353.1 L334.2,261.1 L622.5,122.9 L649.3,113.9 L701.5,101.3 L768.8,88.8 L786.4,86.5 L796.3,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5" fill="none" stroke="#2563eb" stroke-width="2"/>
+<text x="68.0" y="56.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">28.3%</text>
+<path d="M155.0,364.5 L155.0,364.4 L155.0,364.3 L155.0,364.2 L155.0,364.1 L155.0,364.0 L155.1,363.8 L155.1,363.5 L155.2,363.0 L155.3,362.5 L155.6,361.6 L156.1,360.5 L157.2,358.8 L159.2,356.5 L163.3,353.3 L327.6,264.6 L622.0,123.3 L648.3,114.4 L699.4,102.0 L771.9,88.6 L792.4,86.0 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5 L797.0,85.5" fill="none" stroke="#2563eb" stroke-width="2"/>
 <circle cx="155.0" cy="364.5" r="3" fill="#2563eb"/>
 <circle cx="155.0" cy="364.4" r="3" fill="#2563eb"/>
 <circle cx="155.0" cy="364.3" r="3" fill="#2563eb"/>
@@ -26,19 +26,18 @@
 <circle cx="155.1" cy="363.8" r="3" fill="#2563eb"/>
 <circle cx="155.1" cy="363.5" r="3" fill="#2563eb"/>
 <circle cx="155.2" cy="363.0" r="3" fill="#2563eb"/>
-<circle cx="155.3" cy="362.4" r="3" fill="#2563eb"/>
+<circle cx="155.3" cy="362.5" r="3" fill="#2563eb"/>
 <circle cx="155.6" cy="361.6" r="3" fill="#2563eb"/>
-<circle cx="156.1" cy="360.4" r="3" fill="#2563eb"/>
-<circle cx="157.2" cy="358.7" r="3" fill="#2563eb"/>
-<circle cx="159.3" cy="356.4" r="3" fill="#2563eb"/>
-<circle cx="163.5" cy="353.1" r="3" fill="#2563eb"/>
-<circle cx="334.2" cy="261.1" r="3" fill="#2563eb"/>
-<circle cx="622.5" cy="122.9" r="3" fill="#2563eb"/>
-<circle cx="649.3" cy="113.9" r="3" fill="#2563eb"/>
-<circle cx="701.5" cy="101.3" r="3" fill="#2563eb"/>
-<circle cx="768.8" cy="88.8" r="3" fill="#2563eb"/>
-<circle cx="786.4" cy="86.5" r="3" fill="#2563eb"/>
-<circle cx="796.3" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="156.1" cy="360.5" r="3" fill="#2563eb"/>
+<circle cx="157.2" cy="358.8" r="3" fill="#2563eb"/>
+<circle cx="159.2" cy="356.5" r="3" fill="#2563eb"/>
+<circle cx="163.3" cy="353.3" r="3" fill="#2563eb"/>
+<circle cx="327.6" cy="264.6" r="3" fill="#2563eb"/>
+<circle cx="622.0" cy="123.3" r="3" fill="#2563eb"/>
+<circle cx="648.3" cy="114.4" r="3" fill="#2563eb"/>
+<circle cx="699.4" cy="102.0" r="3" fill="#2563eb"/>
+<circle cx="771.9" cy="88.6" r="3" fill="#2563eb"/>
+<circle cx="792.4" cy="86.0" r="3" fill="#2563eb"/>
 <circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
 <circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
 <circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
@@ -52,10 +51,11 @@
 <circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
 <circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
 <circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
-<circle cx="622.5" cy="122.9" r="7" fill="none" stroke="#16a34a" stroke-width="2.5"/>
-<text x="634.5" y="126.9" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#16a34a" text-anchor="start" font-weight="normal">max Sharpe 1.01</text>
+<circle cx="797.0" cy="85.5" r="3" fill="#2563eb"/>
+<circle cx="622.0" cy="123.3" r="7" fill="none" stroke="#16a34a" stroke-width="2.5"/>
+<text x="634.0" y="127.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#16a34a" text-anchor="start" font-weight="normal">max Sharpe 1.00</text>
 <circle cx="155.0" cy="364.5" r="7" fill="none" stroke="#656d76" stroke-width="2.5"/>
 <text x="167.0" y="368.5" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">min variance</text>
 <text x="78.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">annualized volatility 20.9% to 26.1%</text>
-<text x="78.0" y="444.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">max-Sharpe holdings: AAPL 33%, AMZN 21%, GOOGL 23%, MSFT 24%</text>
+<text x="78.0" y="444.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">max-Sharpe holdings: AAPL 33%, AMZN 21%, GOOGL 23%, MSFT 23%</text>
 </svg>

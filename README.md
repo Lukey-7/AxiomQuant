@@ -13,10 +13,11 @@ show a profitable strategy; it is to build machinery honest enough to tell you w
 not profitable. On 11.7 years of real prices it says exactly that: walk-forward SMA crossover returned
 +32.3% out of sample against +254.6% for buy-and-hold SPY. See **[RESEARCH.md](RESEARCH.md)**.
 
-53 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
+64 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
 AddressSanitizer + UndefinedBehaviorSanitizer on every push. Two further jobs check the engine against
 outside references: every optimizer against cvxpy/Clarabel and closed-form solutions to 1e-8, and the
 Monte Carlo and bootstrap workloads against vectorised NumPy implementations of the same tasks.
+Formatting, static analysis and an 80% line-coverage floor are enforced on every push as well.
 
 ---
 
@@ -41,7 +42,7 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 </details>
 
-Charts come from [Real data run 34930622057](https://github.com/Lukey-7/AxiomQuant/actions/runs/34930622057)
+Charts come from [Real data run 35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453)
 (SPY, AAPL, AMZN, GOOGL, MSFT, 2015-01-02 to 2026-09-14). They are generated from the CLI's own CSV
 exports by `scripts/make_charts.py`, which uses only the Python standard library:
 
@@ -119,7 +120,8 @@ The execution model charges per-share and percentage commissions with a minimum 
 bid-ask spread, fixed slippage, and square-root market impact ΔP/P = η·√(Q/V). Positions track
 average cost, realized and unrealized PnL; every fill records the PnL it realized and whether it
 closed a position. Strategies: SMA crossover, RSI mean reversion, cross-sectional momentum (with an
-optional absolute-momentum filter), and buy-and-hold.
+optional absolute-momentum filter and point-in-time index membership), volatility targeting (position
+sized at target vol / trailing vol), and buy-and-hold.
 
 ### `quant::risk`
 CAGR from the calendar span, annualized volatility, Sharpe, Sortino (downside semi-deviation below
@@ -402,7 +404,7 @@ simulation/   deterministic RNG, bootstrap and correlated GBM Monte Carlo
 optimization/ covariance estimation, Markowitz solvers, constrained QP, frontier
 analysis/     window evaluation, parameter sweeps, walk-forward
 cli/          axiomquant, the end-to-end pipeline
-tests/        53 unit and regression tests
+tests/        64 unit and regression tests
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ```
 
