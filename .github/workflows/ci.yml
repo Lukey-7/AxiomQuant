@@ -11,7 +11,7 @@ jobs:
     name: Data tooling (Python)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Unit tests (offline)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
 
@@ -19,7 +19,7 @@ jobs:
     name: Benchmark vs NumPy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the benchmark tool
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -29,7 +29,7 @@ jobs:
       - name: Run the benchmark
         run: python3 scripts/benchmark.py --binary build/bin/axiom_bench --data sample_data --output bench-out
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark
           path: bench-out/
@@ -38,7 +38,7 @@ jobs:
     name: clang-format and clang-tidy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install tools
         run: |
           # clang-format is pinned through pip so CI and a developer machine run the same version;
@@ -72,7 +72,7 @@ jobs:
           tail -5 clang-tidy.log
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: static-analysis
           path: |
@@ -83,7 +83,7 @@ jobs:
     name: Test coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install gcovr
         run: python3 -m pip install --quiet gcovr
       - name: Build instrumented and run tests
@@ -97,7 +97,7 @@ jobs:
           gcovr --root . --filter '(analysis|backtest|data|indicators|optimization|risk|simulation)/'             --exclude-unreachable-branches --print-summary --fail-under-line 80             --html-details coverage/index.html --txt coverage/summary.txt --json-summary coverage/summary.json
           cat coverage/summary.txt
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/
@@ -106,7 +106,7 @@ jobs:
     name: Optimizer vs reference solver
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the optimizer dump tool
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -145,7 +145,7 @@ jobs:
               "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Toolchain
         shell: bash
@@ -192,7 +192,7 @@ jobs:
 
       - name: Upload CLI output
         if: matrix.config == 'Release'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cli-output-${{ matrix.os }}
           path: |

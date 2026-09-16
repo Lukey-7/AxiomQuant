@@ -31,7 +31,7 @@ jobs:
       MAX_SYMBOLS: ${{ github.event.inputs.max_symbols || '0' }}
       MEMBERSHIP_URL: https://raw.githubusercontent.com/fja05680/sp500/master/sp500_ticker_start_end.csv
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build
         run: |
@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sp500-study
           path: |
