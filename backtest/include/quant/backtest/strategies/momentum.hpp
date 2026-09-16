@@ -26,22 +26,20 @@ public:
         double trailing_return{0.0};
     };
 
-    MultiAssetMomentumStrategy(
-        size_t lookback_period = 60,
-        size_t rebalance_frequency = 20,
-        size_t top_k = 2,
-        double target_invested_pct = 0.95,
-        bool require_positive_momentum = false
-    ) : lookback_period_(lookback_period),
-        rebalance_frequency_(rebalance_frequency),
-        top_k_(top_k),
-        target_invested_pct_(target_invested_pct),
-        require_positive_momentum_(require_positive_momentum) {}
+    MultiAssetMomentumStrategy(size_t lookback_period = 60,
+                               size_t rebalance_frequency = 20,
+                               size_t top_k = 2,
+                               double target_invested_pct = 0.95,
+                               bool require_positive_momentum = false)
+        : lookback_period_(lookback_period),
+          rebalance_frequency_(rebalance_frequency),
+          top_k_(top_k),
+          target_invested_pct_(target_invested_pct),
+          require_positive_momentum_(require_positive_momentum) {}
 
     [[nodiscard]] std::string get_name() const override {
         return std::string(require_positive_momentum_ ? "DualMomentum" : "CrossSectionalMomentum") +
-               "(L=" + std::to_string(lookback_period_) +
-               ", R=" + std::to_string(rebalance_frequency_) +
+               "(L=" + std::to_string(lookback_period_) + ", R=" + std::to_string(rebalance_frequency_) +
                ", Top=" + std::to_string(top_k_) + ")";
     }
 
@@ -54,12 +52,10 @@ public:
         last_ranking_.clear();
     }
 
-    void on_bar(
-        size_t timeline_index,
-        const quant::data::MarketSnapshot& snapshot,
-        const Portfolio& portfolio,
-        std::vector<Order>& pending_orders
-    ) override {
+    void on_bar(size_t timeline_index,
+                const quant::data::MarketSnapshot& snapshot,
+                const Portfolio& portfolio,
+                std::vector<Order>& pending_orders) override {
         if (rebalance_frequency_ == 0 || top_k_ == 0 || timeline_index < lookback_period_) return;
         if ((timeline_index - lookback_period_) % rebalance_frequency_ != 0) return;
 
@@ -83,7 +79,8 @@ public:
 
         const size_t selected_count = std::min(top_k_, ranked.size());
         std::unordered_set<std::string> selected;
-        for (size_t i = 0; i < selected_count; ++i) selected.insert(ranked[i].ticker);
+        for (size_t i = 0; i < selected_count; ++i)
+            selected.insert(ranked[i].ticker);
 
         // 2. Liquidate every open position that fell out of the selection.
         for (const auto& [ticker, pos] : portfolio.get_positions()) {
@@ -99,8 +96,8 @@ public:
         if (selected_count == 0) return;
 
         // 3. Rebalance the winners to equal dollar weight.
-        const double target_dollars = portfolio.get_total_equity() * target_invested_pct_ /
-                                      static_cast<double>(selected_count);
+        const double target_dollars =
+            portfolio.get_total_equity() * target_invested_pct_ / static_cast<double>(selected_count);
         for (size_t i = 0; i < selected_count; ++i) {
             const auto& ticker = ranked[i].ticker;
             const double price = snapshot.get_bar(ticker).close;
@@ -133,4 +130,4 @@ private:
     std::vector<RankedAsset> last_ranking_;
 };
 
-} // namespace quant::backtest::strategies
+}   // namespace quant::backtest::strategies

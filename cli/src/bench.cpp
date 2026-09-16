@@ -56,13 +56,14 @@ std::pair<double, double> time_best(int repeats, const std::function<double()>& 
     for (int r = 0; r < repeats; ++r) {
         const auto start = std::chrono::steady_clock::now();
         check = work();
-        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        const double seconds =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         best = std::min(best, seconds);
     }
     return {best, check};
 }
 
-} // namespace
+}   // namespace
 
 int main(int argc, char* argv[]) {
     try {
@@ -84,10 +85,13 @@ int main(int argc, char* argv[]) {
         auto raw = quant::data::CsvLoader::load_directory(data_dir);
         if (raw.size() < 2) throw std::runtime_error("need at least two CSV files in " + data_dir.string());
         std::vector<std::string> symbols;
-        for (const auto& entry : raw) symbols.push_back(entry.first);
+        symbols.reserve(raw.size());
+        for (const auto& entry : raw)
+            symbols.push_back(entry.first);
         std::sort(symbols.begin(), symbols.end());
         quant::data::MarketDataUniverse universe;
-        for (const auto& s : symbols) universe.add_asset(s, std::move(raw[s]));
+        for (const auto& s : symbols)
+            universe.add_asset(s, std::move(raw[s]));
         universe.synchronize_timeline(true);
 
         const auto matrix = universe.get_aligned_returns_matrix();
@@ -95,7 +99,8 @@ int main(int argc, char* argv[]) {
         const auto cols = static_cast<Eigen::Index>(symbols.size());
         Eigen::MatrixXd returns(rows, cols);
         for (Eigen::Index r = 0; r < rows; ++r) {
-            for (Eigen::Index c = 0; c < cols; ++c) returns(r, c) = matrix[static_cast<size_t>(r)][static_cast<size_t>(c)];
+            for (Eigen::Index c = 0; c < cols; ++c)
+                returns(r, c) = matrix[static_cast<size_t>(r)][static_cast<size_t>(c)];
         }
         // Column order is alphabetical; the first column drives the single-series workloads.
         std::vector<double> first(static_cast<size_t>(rows)), second(static_cast<size_t>(rows));
@@ -103,8 +108,10 @@ int main(int argc, char* argv[]) {
             first[static_cast<size_t>(r)] = returns(r, 0);
             second[static_cast<size_t>(r)] = returns(r, 1);
         }
-        const Eigen::VectorXd mu = quant::optimization::PortfolioStats::compute_expected_returns(returns, 252.0);
-        const Eigen::MatrixXd daily_cov = quant::optimization::PortfolioStats::compute_sample_covariance(returns, 1.0);
+        const Eigen::VectorXd mu =
+            quant::optimization::PortfolioStats::compute_expected_returns(returns, 252.0);
+        const Eigen::MatrixXd daily_cov =
+            quant::optimization::PortfolioStats::compute_sample_covariance(returns, 1.0);
         const Eigen::VectorXd weights = Eigen::VectorXd::Constant(cols, 1.0 / static_cast<double>(cols));
 
         std::printf("workload,threads,seconds,check\n");
@@ -119,9 +126,8 @@ int main(int argc, char* argv[]) {
 
             mc.use_bootstrap = true;
             const quant::simulation::MonteCarloEngine bootstrap_engine(mc);
-            auto [boot_s, boot_check] = time_best(repeats, [&] {
-                return bootstrap_engine.run_simulation(first).mean_terminal_wealth;
-            });
+            auto [boot_s, boot_check] = time_best(
+                repeats, [&] { return bootstrap_engine.run_simulation(first).mean_terminal_wealth; });
             std::printf("mc_bootstrap,%d,%.6f,%.6f\n", t, boot_s, boot_check);
 
             mc.use_bootstrap = false;
@@ -133,9 +139,8 @@ int main(int argc, char* argv[]) {
 
             quant::analysis::BootstrapConfig bc;
             bc.resamples = kResamples;
-            auto [sb_s, sb_check] = time_best(repeats, [&] {
-                return quant::analysis::bootstrap_sharpe(first, second, bc).strategy.lower;
-            });
+            auto [sb_s, sb_check] = time_best(
+                repeats, [&] { return quant::analysis::bootstrap_sharpe(first, second, bc).strategy.lower; });
             std::printf("block_bootstrap_sharpe,%d,%.6f,%.6f\n", t, sb_s, sb_check);
             std::fflush(stdout);
         }

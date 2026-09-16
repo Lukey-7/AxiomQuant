@@ -73,4 +73,4 @@ private:
     bool has_spare_{false};
 };
 
-} // namespace quant::simulation
+}   // namespace quant::simulation

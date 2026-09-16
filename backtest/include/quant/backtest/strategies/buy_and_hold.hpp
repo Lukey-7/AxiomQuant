@@ -19,24 +19,20 @@ public:
     explicit BuyAndHoldStrategy(std::string ticker, double allocation_pct = 0.99)
         : ticker_(std::move(ticker)), allocation_pct_(allocation_pct) {}
 
-    [[nodiscard]] std::string get_name() const override {
-        return "BuyAndHold(" + ticker_ + ")";
-    }
+    [[nodiscard]] std::string get_name() const override { return "BuyAndHold(" + ticker_ + ")"; }
 
     void on_start(Portfolio& /*portfolio*/, const quant::data::MarketDataUniverse& /*universe*/) override {
         order_sent_ = false;
         order_bar_ = 0;
     }
 
-    void on_bar(
-        size_t timeline_index,
-        const quant::data::MarketSnapshot& snapshot,
-        const Portfolio& portfolio,
-        std::vector<Order>& pending_orders
-    ) override {
+    void on_bar(size_t timeline_index,
+                const quant::data::MarketSnapshot& snapshot,
+                const Portfolio& portfolio,
+                std::vector<Order>& pending_orders) override {
         if (!snapshot.has_ticker(ticker_)) return;
         if (portfolio.get_position_quantity(ticker_) != 0.0) return;
-        if (order_sent_ && timeline_index <= order_bar_ + 1) return; // a fill may still be pending
+        if (order_sent_ && timeline_index <= order_bar_ + 1) return;   // a fill may still be pending
 
         const double price = snapshot.get_bar(ticker_).close;
         if (!(price > 0.0)) return;
@@ -60,5 +56,5 @@ private:
     size_t order_bar_{0};
 };
 
-} // namespace strategies
-} // namespace quant::backtest
+}   // namespace strategies
+}   // namespace quant::backtest

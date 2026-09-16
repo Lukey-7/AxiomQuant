@@ -8,12 +8,12 @@
 namespace quant::backtest {
 
 struct ExecutionConfig {
-    double per_share_commission{0.005};       // $0.005 per share
-    double min_commission{1.00};              // $1.00 minimum ticket fee
-    double percentage_commission{0.0001};     // 1 basis point (0.01%) of notional
-    double fixed_slippage_bps{2.0};           // 2 basis points fixed slippage
-    double spread_bps{3.0};                   // 3 basis points total bid-ask spread
-    double market_impact_factor{0.1};         // Market impact factor: eta * (qty / volume)^0.5
+    double per_share_commission{0.005};     // $0.005 per share
+    double min_commission{1.00};            // $1.00 minimum ticket fee
+    double percentage_commission{0.0001};   // 1 basis point (0.01%) of notional
+    double fixed_slippage_bps{2.0};         // 2 basis points fixed slippage
+    double spread_bps{3.0};                 // 3 basis points total bid-ask spread
+    double market_impact_factor{0.1};       // Market impact factor: eta * (qty / volume)^0.5
     bool enable_market_impact{true};
 };
 
@@ -34,7 +34,9 @@ public:
     /**
      * @brief Simulates execution at an explicit reference price (e.g. the bar open for next-bar fills).
      */
-    [[nodiscard]] Fill execute_order(const Order& order, const quant::data::Bar& bar, double reference_price) const {
+    [[nodiscard]] Fill execute_order(const Order& order,
+                                     const quant::data::Bar& bar,
+                                     double reference_price) const {
         Fill fill;
         fill.order_id = order.order_id;
         fill.ticker = order.ticker;
@@ -65,7 +67,8 @@ public:
             fill.execution_price = fill.price + half_spread_dollar + slippage_dollar;
         } else {
             fill.execution_price = fill.price - half_spread_dollar - slippage_dollar;
-            if (fill.execution_price < 0.0001) fill.execution_price = 0.0001; // Guard against negative prices
+            if (fill.execution_price < 0.0001)
+                fill.execution_price = 0.0001;   // Guard against negative prices
         }
 
         // 4. Commission Calculation
@@ -84,4 +87,4 @@ private:
     ExecutionConfig config_;
 };
 
-} // namespace quant::backtest
+}   // namespace quant::backtest

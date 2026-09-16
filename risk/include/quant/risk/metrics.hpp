@@ -7,7 +7,7 @@
 namespace quant::risk {
 
 struct DrawdownInfo {
-    double max_drawdown{0.0};      // Maximum percentage drawdown (e.g. 0.15 = 15%)
+    double max_drawdown{0.0};   // Maximum percentage drawdown (e.g. 0.15 = 15%)
     size_t peak_index{0};
     size_t trough_index{0};
     size_t recovery_index{0};
@@ -15,16 +15,16 @@ struct DrawdownInfo {
 };
 
 struct TradeMetrics {
-    int total_trades{0};           // All fills (entries + exits)
-    int closed_trades{0};          // Fills that reduced or closed a position (realize PnL)
+    int total_trades{0};    // All fills (entries + exits)
+    int closed_trades{0};   // Fills that reduced or closed a position (realize PnL)
     int winning_trades{0};
     int losing_trades{0};
-    double win_rate{0.0};          // winning_trades / closed_trades
-    double profit_factor{0.0};     // gross_profit / gross_loss (+inf if there were no losing trades)
+    double win_rate{0.0};        // winning_trades / closed_trades
+    double profit_factor{0.0};   // gross_profit / gross_loss (+inf if there were no losing trades)
     double gross_profit{0.0};
     double gross_loss{0.0};
     double total_realized_pnl{0.0};
-    double average_trade_pnl{0.0}; // total_realized_pnl / closed_trades
+    double average_trade_pnl{0.0};   // total_realized_pnl / closed_trades
     double largest_win{0.0};
     double largest_loss{0.0};
     double total_commissions{0.0};
@@ -32,9 +32,9 @@ struct TradeMetrics {
 
 struct PerformanceSummary {
     double risk_free_rate{0.0};
-    double years{0.0};             // Calendar length of the backtest
-    double exposure{0.0};          // Fraction of bars with capital deployed in the market
-    double total_transaction_costs{0.0}; // Commissions + slippage + half-spread
+    double years{0.0};                     // Calendar length of the backtest
+    double exposure{0.0};                  // Fraction of bars with capital deployed in the market
+    double total_transaction_costs{0.0};   // Commissions + slippage + half-spread
     double initial_equity{0.0};
     double final_equity{0.0};
     double total_return{0.0};
@@ -83,7 +83,8 @@ public:
     /**
      * @brief Computes annualized volatility: sigma_daily * sqrt(annualization_factor).
      */
-    [[nodiscard]] static double annualized_volatility(const std::vector<double>& daily_returns, double ann_factor = 252.0);
+    [[nodiscard]] static double annualized_volatility(const std::vector<double>& daily_returns,
+                                                      double ann_factor = 252.0);
 
     /**
      * @brief Computes annualized Sharpe Ratio: (mean(R) * ann_factor - Rf) / (std(R) * sqrt(ann_factor)).
@@ -91,11 +92,9 @@ public:
      * @param risk_free_rate Annualized risk-free rate (e.g. 0.02 = 2%).
      * @param ann_factor Trading days per year (default 252.0).
      */
-    [[nodiscard]] static double sharpe_ratio(
-        const std::vector<double>& daily_returns,
-        double risk_free_rate = 0.0,
-        double ann_factor = 252.0
-    );
+    [[nodiscard]] static double sharpe_ratio(const std::vector<double>& daily_returns,
+                                             double risk_free_rate = 0.0,
+                                             double ann_factor = 252.0);
 
     /**
      * @brief Computes Sortino Ratio using downside deviation below minimum acceptable return (MAR).
@@ -103,11 +102,9 @@ public:
      * @param mar Annualized minimum acceptable return target (default 0.0).
      * @param ann_factor Trading days per year (default 252.0).
      */
-    [[nodiscard]] static double sortino_ratio(
-        const std::vector<double>& daily_returns,
-        double mar = 0.0,
-        double ann_factor = 252.0
-    );
+    [[nodiscard]] static double sortino_ratio(const std::vector<double>& daily_returns,
+                                              double mar = 0.0,
+                                              double ann_factor = 252.0);
 
     /**
      * @brief Computes maximum drawdown and peak/trough details from an equity curve.
@@ -130,4 +127,4 @@ public:
     [[nodiscard]] static double excess_kurtosis(const std::vector<double>& returns);
 };
 
-} // namespace quant::risk
+}   // namespace quant::risk

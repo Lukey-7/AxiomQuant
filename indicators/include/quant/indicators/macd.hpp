@@ -24,12 +24,10 @@ public:
      * @param signal_period Signal line EMA period (default 9).
      * @return MacdResult containing macd_line, signal_line, and histogram vectors.
      */
-    [[nodiscard]] static MacdResult calculate(
-        const std::vector<double>& prices,
-        size_t fast_period = 12,
-        size_t slow_period = 26,
-        size_t signal_period = 9
-    ) {
+    [[nodiscard]] static MacdResult calculate(const std::vector<double>& prices,
+                                              size_t fast_period = 12,
+                                              size_t slow_period = 26,
+                                              size_t signal_period = 9) {
         if (fast_period >= slow_period) {
             throw std::invalid_argument("MACD fast_period must be strictly less than slow_period");
         }
@@ -38,11 +36,8 @@ public:
         }
 
         const size_t n = prices.size();
-        MacdResult result{
-            std::vector<double>(n, NaN),
-            std::vector<double>(n, NaN),
-            std::vector<double>(n, NaN)
-        };
+        MacdResult result{std::vector<double>(n, NaN), std::vector<double>(n, NaN),
+                          std::vector<double>(n, NaN)};
 
         if (n < slow_period) {
             return result;
@@ -79,4 +74,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

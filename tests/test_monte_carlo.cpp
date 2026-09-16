@@ -71,8 +71,7 @@ TEST_CASE(TestSimulation_CorrelatedGbmPortfolio_BuyAndHoldMean) {
     Eigen::VectorXd mu(2);
     mu << 0.08, 0.12;
     Eigen::MatrixXd cov_daily(2, 2);
-    cov_daily << 0.04, 0.03,
-                 0.03, 0.09;
+    cov_daily << 0.04, 0.03, 0.03, 0.09;
     cov_daily /= 252.0;
     Eigen::VectorXd weights(2);
     weights << 0.6, 0.4;
@@ -93,8 +92,7 @@ TEST_CASE(TestSimulation_CorrelatedGbmPortfolio_DailyRebalancedMean) {
     Eigen::VectorXd mu(2);
     mu << 0.08, 0.12;
     Eigen::MatrixXd cov_daily(2, 2);
-    cov_daily << 0.04, 0.03,
-                 0.03, 0.09;
+    cov_daily << 0.04, 0.03, 0.03, 0.09;
     cov_daily /= 252.0;
     Eigen::VectorXd weights(2);
     weights << 0.6, 0.4;

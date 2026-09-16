@@ -23,15 +23,15 @@ quant::analysis::BacktestSetup frictionless_setup() {
     return setup;
 }
 
-} // namespace
+}   // namespace
 
 TEST_CASE(TestAnalysis_EvaluateWindow_MeasuresOnlyTheWindow) {
     auto universe = trending_universe(200);
     quant::backtest::strategies::BuyAndHoldStrategy strategy("AAA", 0.99);
 
     std::vector<double> returns;
-    const auto perf = quant::analysis::evaluate_window(universe, strategy, frictionless_setup(),
-                                                       100, 160, 20, &returns);
+    const auto perf =
+        quant::analysis::evaluate_window(universe, strategy, frictionless_setup(), 100, 160, 20, &returns);
 
     EXPECT_EQ(returns.size(), 59u);   // 60 bars in the window -> 59 daily returns
     EXPECT_EQ(perf.days, 59u);
@@ -40,8 +40,8 @@ TEST_CASE(TestAnalysis_EvaluateWindow_MeasuresOnlyTheWindow) {
 
 TEST_CASE(TestAnalysis_Sweep_CoversGridAndIsSortedBySharpe) {
     auto universe = trending_universe(300);
-    const auto sweep = quant::analysis::sweep_sma_parameters(
-        universe, "AAA", {5, 10}, {20, 40}, frictionless_setup(), 0, universe.size(), 0);
+    const auto sweep = quant::analysis::sweep_sma_parameters(universe, "AAA", {5, 10}, {20, 40},
+                                                             frictionless_setup(), 0, universe.size(), 0);
 
     EXPECT_EQ(sweep.size(), 4u);   // every (fast < slow) pair
     for (const auto& point : sweep) {

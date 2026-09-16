@@ -15,8 +15,8 @@ TEST_CASE(TestData_TimeSeries_Returns) {
     EXPECT_EQ(ts.size(), 3);
     auto simple_rets = ts.simple_returns();
     EXPECT_EQ(simple_rets.size(), 2);
-    EXPECT_NEAR(simple_rets[0], 0.10, 1e-6);          // (110 - 100)/100 = 0.10
-    EXPECT_NEAR(simple_rets[1], -0.10, 1e-6);         // (99 - 110)/110 = -0.10
+    EXPECT_NEAR(simple_rets[0], 0.10, 1e-6);    // (110 - 100)/100 = 0.10
+    EXPECT_NEAR(simple_rets[1], -0.10, 1e-6);   // (99 - 110)/110 = -0.10
 
     auto log_rets = ts.log_returns();
     EXPECT_EQ(log_rets.size(), 2);

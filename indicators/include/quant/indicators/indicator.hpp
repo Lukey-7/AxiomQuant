@@ -18,4 +18,4 @@ inline constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
     return !std::isnan(val) && !std::isinf(val);
 }
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

@@ -7,11 +7,9 @@
 
 namespace quant::optimization {
 
-OptimizationResult UnconstrainedMarkowitz::global_minimum_variance(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    double risk_free_rate
-) {
+OptimizationResult UnconstrainedMarkowitz::global_minimum_variance(const Eigen::VectorXd& expected_returns,
+                                                                   const Eigen::MatrixXd& cov_matrix,
+                                                                   double risk_free_rate) {
     const size_t n = expected_returns.size();
     if (cov_matrix.rows() != static_cast<int>(n) || cov_matrix.cols() != static_cast<int>(n)) {
         throw std::invalid_argument("Dimension mismatch between expected_returns and cov_matrix");
@@ -46,12 +44,10 @@ OptimizationResult UnconstrainedMarkowitz::global_minimum_variance(
     return res;
 }
 
-OptimizationResult UnconstrainedMarkowitz::target_return_portfolio(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    double target_return,
-    double risk_free_rate
-) {
+OptimizationResult UnconstrainedMarkowitz::target_return_portfolio(const Eigen::VectorXd& expected_returns,
+                                                                   const Eigen::MatrixXd& cov_matrix,
+                                                                   double target_return,
+                                                                   double risk_free_rate) {
     const size_t n = expected_returns.size();
     Eigen::VectorXd ones = Eigen::VectorXd::Ones(n);
 
@@ -92,11 +88,9 @@ OptimizationResult UnconstrainedMarkowitz::target_return_portfolio(
     return res;
 }
 
-OptimizationResult UnconstrainedMarkowitz::maximum_sharpe_portfolio(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    double risk_free_rate
-) {
+OptimizationResult UnconstrainedMarkowitz::maximum_sharpe_portfolio(const Eigen::VectorXd& expected_returns,
+                                                                    const Eigen::MatrixXd& cov_matrix,
+                                                                    double risk_free_rate) {
     const size_t n = expected_returns.size();
     Eigen::VectorXd excess_returns = expected_returns - (Eigen::VectorXd::Ones(n) * risk_free_rate);
 
@@ -127,13 +121,11 @@ OptimizationResult UnconstrainedMarkowitz::maximum_sharpe_portfolio(
     return res;
 }
 
-OptimizationResult UnconstrainedMarkowitz::risk_parity_portfolio(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    double risk_free_rate,
-    size_t max_iter,
-    double tol
-) {
+OptimizationResult UnconstrainedMarkowitz::risk_parity_portfolio(const Eigen::VectorXd& expected_returns,
+                                                                 const Eigen::MatrixXd& cov_matrix,
+                                                                 double risk_free_rate,
+                                                                 size_t max_iter,
+                                                                 double tol) {
     const size_t n = expected_returns.size();
     // Cyclical coordinate descent for Equal Risk Contribution (Spinu, 2013) on the strictly convex
     //   min_y  0.5 * y^T Sigma y - b * sum_i log(y_i),   b = 1/N,
@@ -173,4 +165,4 @@ OptimizationResult UnconstrainedMarkowitz::risk_parity_portfolio(
     return res;
 }
 
-} // namespace quant::optimization
+}   // namespace quant::optimization

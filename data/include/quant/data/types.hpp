@@ -16,8 +16,8 @@ namespace quant::data {
  * @brief Represents a single price candle / OHLCV bar.
  */
 struct Bar {
-    std::string date;      // ISO-8601 string, e.g. "2023-01-03"
-    int64_t timestamp{0};  // Unix timestamp in seconds
+    std::string date;       // ISO-8601 string, e.g. "2023-01-03"
+    int64_t timestamp{0};   // Unix timestamp in seconds
     double open{0.0};
     double high{0.0};
     double low{0.0};
@@ -26,8 +26,8 @@ struct Bar {
     double volume{0.0};
 
     [[nodiscard]] bool is_valid() const noexcept {
-        return open > 0.0 && high >= low && high >= open && high >= close &&
-               low <= open && low <= close && close > 0.0 && !std::isnan(close) && !std::isinf(close);
+        return open > 0.0 && high >= low && high >= open && high >= close && low <= open && low <= close &&
+               close > 0.0 && !std::isnan(close) && !std::isinf(close);
     }
 };
 
@@ -89,16 +89,8 @@ public:
         if (index >= size()) {
             throw std::out_of_range("TimeSeries index out of range");
         }
-        return Bar{
-            dates[index],
-            timestamps[index],
-            open[index],
-            high[index],
-            low[index],
-            close[index],
-            adj_close[index],
-            volume[index]
-        };
+        return Bar{dates[index], timestamps[index], open[index],      high[index],
+                   low[index],   close[index],      adj_close[index], volume[index]};
     }
 
     /**
@@ -134,9 +126,7 @@ struct MarketSnapshot {
     int64_t timestamp{0};
     std::unordered_map<std::string, Bar> bars;
 
-    [[nodiscard]] bool has_ticker(const std::string& ticker) const {
-        return bars.find(ticker) != bars.end();
-    }
+    [[nodiscard]] bool has_ticker(const std::string& ticker) const { return bars.find(ticker) != bars.end(); }
 
     [[nodiscard]] const Bar& get_bar(const std::string& ticker) const {
         auto it = bars.find(ticker);
@@ -147,4 +137,4 @@ struct MarketSnapshot {
     }
 };
 
-} // namespace quant::data
+}   // namespace quant::data

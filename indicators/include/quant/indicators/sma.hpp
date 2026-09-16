@@ -19,7 +19,7 @@ public:
         if (period == 0) {
             throw std::invalid_argument("SMA period must be >= 1");
         }
-        
+
         const size_t n = data.size();
         std::vector<double> result(n, NaN);
         if (n < period) {
@@ -41,4 +41,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

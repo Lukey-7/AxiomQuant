@@ -16,9 +16,9 @@ TEST_CASE(TestBacktest_ExecutionModel_Costs) {
     quant::backtest::ExecutionConfig cfg;
     cfg.per_share_commission = 0.01;
     cfg.min_commission = 1.00;
-    cfg.percentage_commission = 0.001; // 10 bps
-    cfg.fixed_slippage_bps = 5.0;      // 5 bps
-    cfg.spread_bps = 4.0;              // 4 bps
+    cfg.percentage_commission = 0.001;   // 10 bps
+    cfg.fixed_slippage_bps = 5.0;        // 5 bps
+    cfg.spread_bps = 4.0;                // 4 bps
     cfg.enable_market_impact = false;
 
     quant::backtest::ExecutionModel exec(cfg);
@@ -83,7 +83,7 @@ TEST_CASE(TestBacktest_Position_PnL) {
     double pnl3 = pos.update_with_fill(fill3);
     EXPECT_NEAR(pnl3, 1999.0, 1e-6);
     EXPECT_NEAR(pos.quantity, 100.0, 1e-6);
-    EXPECT_NEAR(pos.average_price, 155.0, 1e-6); // avg price of remaining shares unchanged
+    EXPECT_NEAR(pos.average_price, 155.0, 1e-6);   // avg price of remaining shares unchanged
 }
 
 TEST_CASE(TestBacktest_Portfolio_Cash_Conservation) {
@@ -117,16 +117,14 @@ TEST_CASE(TestBacktest_Portfolio_Cash_Conservation) {
 // --- Regression: orders must not be filled with information from the bar that generated them ---
 TEST_CASE(TestBacktest_NextBarOpen_HasNoLookAhead) {
     auto universe = quant::tests::make_universe({{"AAA",
-        {100.0, 101.0, 102.0, 103.0, 104.0},   // closes
-        {200.0, 201.0, 202.0, 203.0, 204.0}}}); // opens
+                                                  {100.0, 101.0, 102.0, 103.0, 104.0},      // closes
+                                                  {200.0, 201.0, 202.0, 203.0, 204.0}}});   // opens
 
     quant::tests::ScriptedStrategy strategy({{1, "AAA", quant::backtest::OrderSide::BUY, 10.0}});
     quant::backtest::BacktestEngine engine(
-        universe,
-        quant::backtest::Portfolio(100000.0),
+        universe, quant::backtest::Portfolio(100000.0),
         quant::backtest::ExecutionModel(quant::tests::frictionless_execution()),
-        quant::backtest::EngineConfig{}
-    );
+        quant::backtest::EngineConfig{});
 
     auto result = engine.run(strategy);
     EXPECT_EQ(result.trades.size(), 1u);
@@ -136,19 +134,15 @@ TEST_CASE(TestBacktest_NextBarOpen_HasNoLookAhead) {
 }
 
 TEST_CASE(TestBacktest_SameBarClose_FillTimingIsOptIn) {
-    auto universe = quant::tests::make_universe({{"AAA",
-        {100.0, 101.0, 102.0, 103.0, 104.0},
-        {200.0, 201.0, 202.0, 203.0, 204.0}}});
+    auto universe = quant::tests::make_universe(
+        {{"AAA", {100.0, 101.0, 102.0, 103.0, 104.0}, {200.0, 201.0, 202.0, 203.0, 204.0}}});
 
     quant::tests::ScriptedStrategy strategy({{1, "AAA", quant::backtest::OrderSide::BUY, 10.0}});
     quant::backtest::EngineConfig cfg;
     cfg.fill_timing = quant::backtest::FillTiming::SameBarClose;
     quant::backtest::BacktestEngine engine(
-        universe,
-        quant::backtest::Portfolio(100000.0),
-        quant::backtest::ExecutionModel(quant::tests::frictionless_execution()),
-        cfg
-    );
+        universe, quant::backtest::Portfolio(100000.0),
+        quant::backtest::ExecutionModel(quant::tests::frictionless_execution()), cfg);
 
     auto result = engine.run(strategy);
     EXPECT_EQ(result.trades.size(), 1u);
@@ -159,8 +153,9 @@ TEST_CASE(TestBacktest_SameBarClose_FillTimingIsOptIn) {
 TEST_CASE(TestBacktest_OrderOnFinalBarCannotBeFilled) {
     auto universe = quant::tests::make_universe({{"AAA", {100.0, 101.0, 102.0}, {}}});
     quant::tests::ScriptedStrategy strategy({{2, "AAA", quant::backtest::OrderSide::BUY, 5.0}});
-    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(100000.0),
-                                           quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
+    quant::backtest::BacktestEngine engine(
+        universe, quant::backtest::Portfolio(100000.0),
+        quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
 
     auto result = engine.run(strategy);
     EXPECT_EQ(result.trades.size(), 0u);
@@ -171,8 +166,9 @@ TEST_CASE(TestBacktest_OrderOnFinalBarCannotBeFilled) {
 TEST_CASE(TestBacktest_OversizedBuyIsDownsizedAndCashStaysPositive) {
     auto universe = quant::tests::make_universe({{"AAA", {100.0, 100.0, 100.0, 100.0}, {}}});
     quant::tests::ScriptedStrategy strategy({{0, "AAA", quant::backtest::OrderSide::BUY, 1000.0}});
-    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(10000.0),
-                                           quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
+    quant::backtest::BacktestEngine engine(
+        universe, quant::backtest::Portfolio(10000.0),
+        quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
 
     auto result = engine.run(strategy);
     EXPECT_EQ(result.trades.size(), 1u);
@@ -184,15 +180,16 @@ TEST_CASE(TestBacktest_OversizedBuyIsDownsizedAndCashStaysPositive) {
 // --- Regression: trade statistics must come from realized PnL, not from sale proceeds ---
 TEST_CASE(TestBacktest_RealizedPnlDrivesTradeStatistics) {
     auto universe = quant::tests::make_universe({{"AAA",
-        {100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0},
-        {100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0}}});
+                                                  {100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0},
+                                                  {100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0}}});
 
     quant::tests::ScriptedStrategy strategy({
         {1, "AAA", quant::backtest::OrderSide::BUY, 10.0},
         {4, "AAA", quant::backtest::OrderSide::SELL, 10.0},
     });
-    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(100000.0),
-                                           quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
+    quant::backtest::BacktestEngine engine(
+        universe, quant::backtest::Portfolio(100000.0),
+        quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
     auto result = engine.run(strategy);
 
     EXPECT_EQ(result.trades.size(), 2u);
@@ -220,25 +217,31 @@ TEST_CASE(TestBacktest_MomentumRanksAndRotates) {
                           : 100.0 * std::pow(1.02, 59.0) * std::pow(0.98, static_cast<double>(t - 59));
     }
     auto universe = quant::tests::make_universe({
-        {"STEADY", steady, {}}, {"SPIKE", spike, {}}, {"SLOWPOKE", slow, {}},
+        {"STEADY", steady, {}},
+        {"SPIKE", spike, {}},
+        {"SLOWPOKE", slow, {}},
     });
 
     quant::backtest::strategies::MultiAssetMomentumStrategy strategy(20, 10, 2, 0.95);
-    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(100000.0),
-                                           quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
+    quant::backtest::BacktestEngine engine(
+        universe, quant::backtest::Portfolio(100000.0),
+        quant::backtest::ExecutionModel(quant::tests::frictionless_execution()));
     auto result = engine.run(strategy);
 
     bool bought_spike_early = false, sold_spike_late = false, bought_slowpoke_late = false;
     for (const auto& fill : result.trades) {
         const bool early = fill.date < quant::tests::synthetic_date(60);
-        if (fill.ticker == "SPIKE" && fill.side == quant::backtest::OrderSide::BUY && early) bought_spike_early = true;
-        if (fill.ticker == "SPIKE" && fill.side == quant::backtest::OrderSide::SELL && !early) sold_spike_late = true;
-        if (fill.ticker == "SLOWPOKE" && fill.side == quant::backtest::OrderSide::BUY && !early) bought_slowpoke_late = true;
+        if (fill.ticker == "SPIKE" && fill.side == quant::backtest::OrderSide::BUY && early)
+            bought_spike_early = true;
+        if (fill.ticker == "SPIKE" && fill.side == quant::backtest::OrderSide::SELL && !early)
+            sold_spike_late = true;
+        if (fill.ticker == "SLOWPOKE" && fill.side == quant::backtest::OrderSide::BUY && !early)
+            bought_slowpoke_late = true;
     }
 
-    EXPECT_TRUE(bought_spike_early);    // the fastest riser is bought while it is rising
-    EXPECT_TRUE(sold_spike_late);       // and liquidated once its trailing return turns negative
-    EXPECT_TRUE(bought_slowpoke_late);  // the replacement is actually bought
+    EXPECT_TRUE(bought_spike_early);     // the fastest riser is bought while it is rising
+    EXPECT_TRUE(sold_spike_late);        // and liquidated once its trailing return turns negative
+    EXPECT_TRUE(bought_slowpoke_late);   // the replacement is actually bought
     EXPECT_NEAR(engine.get_portfolio().get_position_quantity("SPIKE"), 0.0, 1e-9);
     EXPECT_TRUE(engine.get_portfolio().get_position_quantity("STEADY") > 0.0);
 

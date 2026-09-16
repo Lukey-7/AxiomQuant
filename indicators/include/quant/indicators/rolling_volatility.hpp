@@ -17,11 +17,9 @@ public:
      * @param annualization_factor Factor to annualize daily volatility (e.g. 252.0 for trading days).
      * @return Vector of annualized volatilities aligned with prices.
      */
-    [[nodiscard]] static std::vector<double> calculate(
-        const std::vector<double>& prices,
-        size_t window = 20,
-        double annualization_factor = 252.0
-    ) {
+    [[nodiscard]] static std::vector<double> calculate(const std::vector<double>& prices,
+                                                       size_t window = 20,
+                                                       double annualization_factor = 252.0) {
         if (window < 2) {
             throw std::invalid_argument("Rolling volatility window must be >= 2");
         }
@@ -67,4 +65,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

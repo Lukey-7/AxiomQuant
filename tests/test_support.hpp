@@ -33,7 +33,7 @@ inline int64_t synthetic_timestamp(size_t index) {
 struct SyntheticAsset {
     std::string ticker;
     std::vector<double> close;
-    std::vector<double> open; // empty => open == close
+    std::vector<double> open;   // empty => open == close
 };
 
 /**
@@ -92,12 +92,10 @@ public:
 
     [[nodiscard]] std::string get_name() const override { return "Scripted"; }
 
-    void on_bar(
-        size_t timeline_index,
-        const data::MarketSnapshot& /*snapshot*/,
-        const backtest::Portfolio& /*portfolio*/,
-        std::vector<backtest::Order>& pending_orders
-    ) override {
+    void on_bar(size_t timeline_index,
+                const data::MarketSnapshot& /*snapshot*/,
+                const backtest::Portfolio& /*portfolio*/,
+                std::vector<backtest::Order>& pending_orders) override {
         for (const auto& entry : script_) {
             if (entry.bar != timeline_index) continue;
             backtest::Order order;
@@ -113,4 +111,4 @@ private:
     std::vector<ScriptedOrder> script_;
 };
 
-} // namespace quant::tests
+}   // namespace quant::tests

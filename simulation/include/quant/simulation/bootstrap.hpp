@@ -11,7 +11,8 @@ namespace quant::simulation {
 class BootstrapSimulator {
 public:
     /**
-     * @brief Simulates a portfolio path by bootstrapping (resampling with replacement) historical portfolio returns.
+     * @brief Simulates a portfolio path by bootstrapping (resampling with replacement) historical portfolio
+     * returns.
      * @param historical_returns Vector of historical daily percentage returns.
      * @param initial_equity Starting equity S_0.
      * @param days Number of days to simulate.
@@ -20,11 +21,7 @@ public:
      */
     template <typename Rng>
     [[nodiscard]] static std::vector<double> simulate_portfolio_path(
-        const std::vector<double>& historical_returns,
-        double initial_equity,
-        size_t days,
-        Rng& rng
-    ) {
+        const std::vector<double>& historical_returns, double initial_equity, size_t days, Rng& rng) {
         if (historical_returns.empty()) {
             throw std::invalid_argument("Historical returns cannot be empty for bootstrapping");
         }
@@ -36,7 +33,7 @@ public:
             size_t idx = dist(rng);
             double ret = historical_returns[idx];
             path[t] = path[t - 1] * (1.0 + ret);
-            if (path[t] < 0.0) path[t] = 0.0; // Prevent negative equity
+            if (path[t] < 0.0) path[t] = 0.0;   // Prevent negative equity
         }
 
         return path;
@@ -55,8 +52,7 @@ public:
         const Eigen::MatrixXd& historical_return_matrix,
         const Eigen::VectorXd& initial_prices,
         size_t days,
-        Rng& rng
-    ) {
+        Rng& rng) {
         const size_t n_history = historical_return_matrix.rows();
         const size_t n_assets = historical_return_matrix.cols();
         if (n_history == 0 || n_assets == 0) {
@@ -81,4 +77,4 @@ public:
     }
 };
 
-} // namespace quant::simulation
+}   // namespace quant::simulation

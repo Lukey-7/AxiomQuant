@@ -21,13 +21,7 @@ public:
      */
     template <typename Rng>
     [[nodiscard]] static std::vector<double> simulate_single_path(
-        double s0,
-        double mu,
-        double sigma,
-        size_t days,
-        double dt,
-        Rng& rng
-    ) {
+        double s0, double mu, double sigma, size_t days, double dt, Rng& rng) {
         std::normal_distribution<double> dist(0.0, 1.0);
         std::vector<double> path(days + 1, s0);
 
@@ -53,14 +47,12 @@ public:
      * @return Matrix of prices: dimensions (days + 1) x num_assets.
      */
     template <typename Rng>
-    [[nodiscard]] static Eigen::MatrixXd simulate_correlated_paths(
-        const Eigen::VectorXd& initial_prices,
-        const Eigen::VectorXd& mu,
-        const Eigen::MatrixXd& cholesky_L,
-        size_t days,
-        double dt,
-        Rng& rng
-    ) {
+    [[nodiscard]] static Eigen::MatrixXd simulate_correlated_paths(const Eigen::VectorXd& initial_prices,
+                                                                   const Eigen::VectorXd& mu,
+                                                                   const Eigen::MatrixXd& cholesky_L,
+                                                                   size_t days,
+                                                                   double dt,
+                                                                   Rng& rng) {
         const size_t n_assets = initial_prices.size();
         Eigen::MatrixXd prices(days + 1, n_assets);
         prices.row(0) = initial_prices.transpose();
@@ -93,4 +85,4 @@ public:
     }
 };
 
-} // namespace quant::simulation
+}   // namespace quant::simulation

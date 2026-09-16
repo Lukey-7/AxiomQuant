@@ -47,14 +47,12 @@ double get_percentile(const std::vector<double>& sorted_data, double p) {
     return sorted_data[lower] * (1.0 - frac) + sorted_data[upper] * frac;
 }
 
-MonteCarloReport summarize(
-    std::vector<double>& terminal_wealth,
-    std::vector<double>& max_drawdowns,
-    const MonteCarloConfig& cfg,
-    double elapsed_ms,
-    int threads,
-    std::string method
-) {
+MonteCarloReport summarize(std::vector<double>& terminal_wealth,
+                           std::vector<double>& max_drawdowns,
+                           const MonteCarloConfig& cfg,
+                           double elapsed_ms,
+                           int threads,
+                           std::string method) {
     const size_t N = terminal_wealth.size();
     const double S0 = cfg.initial_wealth;
 
@@ -70,7 +68,8 @@ MonteCarloReport summarize(
     rep.elapsed_ms = elapsed_ms;
     rep.paths_per_second = elapsed_ms > 0.0 ? static_cast<double>(N) / (elapsed_ms / 1000.0) : 0.0;
 
-    rep.mean_terminal_wealth = std::accumulate(terminal_wealth.begin(), terminal_wealth.end(), 0.0) / static_cast<double>(N);
+    rep.mean_terminal_wealth =
+        std::accumulate(terminal_wealth.begin(), terminal_wealth.end(), 0.0) / static_cast<double>(N);
     rep.median_terminal_wealth = get_percentile(terminal_wealth, 0.50);
 
     double sum_sq_diff = 0.0;
@@ -92,7 +91,8 @@ MonteCarloReport summarize(
     rep.p95_wealth = get_percentile(terminal_wealth, 0.95);
     rep.p99_wealth = get_percentile(terminal_wealth, 0.99);
 
-    rep.mean_max_drawdown = std::accumulate(max_drawdowns.begin(), max_drawdowns.end(), 0.0) / static_cast<double>(N);
+    rep.mean_max_drawdown =
+        std::accumulate(max_drawdowns.begin(), max_drawdowns.end(), 0.0) / static_cast<double>(N);
     rep.p50_max_drawdown = get_percentile(max_drawdowns, 0.50);
     rep.p95_max_drawdown = get_percentile(max_drawdowns, 0.95);
     rep.p99_max_drawdown = get_percentile(max_drawdowns, 0.99);
@@ -103,7 +103,8 @@ MonteCarloReport summarize(
 
     // Terminal VaR / CVaR (Expected Shortfall) as fractions of initial capital.
     rep.var_95_terminal = (S0 - rep.p05_wealth) / S0;
-    const size_t tail_count = std::max<size_t>(1, static_cast<size_t>(std::ceil(0.05 * static_cast<double>(N))));
+    const size_t tail_count =
+        std::max<size_t>(1, static_cast<size_t>(std::ceil(0.05 * static_cast<double>(N))));
     double sum_tail_loss = 0.0;
     for (size_t i = 0; i < tail_count; ++i) {
         sum_tail_loss += (S0 - terminal_wealth[i]);
@@ -113,7 +114,7 @@ MonteCarloReport summarize(
     return rep;
 }
 
-} // namespace
+}   // namespace
 
 MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& historical_returns) const {
     const size_t N = config_.num_simulations;
@@ -127,7 +128,8 @@ MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& his
     // GBM calibration: E[S_T] = S_0 * exp(mu * T) with mu the annualized arithmetic mean return.
     const double dt = 1.0 / 252.0;
     const double ann_mu = quant::risk::RiskMetrics::mean(historical_returns) * 252.0;
-    const double ann_sigma = quant::risk::RiskMetrics::standard_deviation(historical_returns) * std::sqrt(252.0);
+    const double ann_sigma =
+        quant::risk::RiskMetrics::standard_deviation(historical_returns) * std::sqrt(252.0);
     const double drift = (ann_mu - 0.5 * ann_sigma * ann_sigma) * dt;
     const double vol = ann_sigma * std::sqrt(dt);
 
@@ -139,7 +141,7 @@ MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& his
     const auto start_time = std::chrono::steady_clock::now();
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) num_threads(threads)
+#pragma omp parallel for schedule(static) num_threads(threads)
 #endif
     for (int64_t i = 0; i < static_cast<int64_t>(N); ++i) {
         PathRng rng(seed, static_cast<uint64_t>(i));
@@ -160,16 +162,16 @@ MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& his
         max_drawdowns[static_cast<size_t>(i)] = max_dd;
     }
 
-    const double elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
-    return summarize(terminal_wealth, max_drawdowns, config_, elapsed_ms, threads,
-                     bootstrap ? "Empirical bootstrap (i.i.d. resampling)" : "Fitted geometric Brownian motion");
+    const double elapsed_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+    return summarize(
+        terminal_wealth, max_drawdowns, config_, elapsed_ms, threads,
+        bootstrap ? "Empirical bootstrap (i.i.d. resampling)" : "Fitted geometric Brownian motion");
 }
 
-MonteCarloReport MonteCarloEngine::run_gbm_portfolio(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    const Eigen::VectorXd& weights
-) const {
+MonteCarloReport MonteCarloEngine::run_gbm_portfolio(const Eigen::VectorXd& expected_returns,
+                                                     const Eigen::MatrixXd& cov_matrix,
+                                                     const Eigen::VectorXd& weights) const {
     const Eigen::Index n = weights.size();
     if (n == 0 || expected_returns.size() != n || cov_matrix.rows() != n || cov_matrix.cols() != n) {
         throw std::invalid_argument("run_gbm_portfolio: dimension mismatch");
@@ -194,7 +196,8 @@ MonteCarloReport MonteCarloEngine::run_gbm_portfolio(
     const size_t un = static_cast<size_t>(n);
     std::vector<double> L_flat(un * un, 0.0), drift(un), w(un);
     for (size_t i = 0; i < un; ++i) {
-        for (size_t j = 0; j <= i; ++j) L_flat[i * un + j] = L(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j));
+        for (size_t j = 0; j <= i; ++j)
+            L_flat[i * un + j] = L(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j));
         const auto ii = static_cast<Eigen::Index>(i);
         drift[i] = expected_returns(ii) / 252.0 - 0.5 * cov_matrix(ii, ii);
         w[i] = weights(ii);
@@ -209,13 +212,13 @@ MonteCarloReport MonteCarloEngine::run_gbm_portfolio(
     const auto start_time = std::chrono::steady_clock::now();
 
 #ifdef _OPENMP
-    #pragma omp parallel num_threads(threads)
+#pragma omp parallel num_threads(threads)
 #endif
     {
         std::vector<double> z(un), rel_price(un);
 
 #ifdef _OPENMP
-        #pragma omp for schedule(static)
+#pragma omp for schedule(static)
 #endif
         for (int64_t p = 0; p < static_cast<int64_t>(N); ++p) {
             PathRng rng(seed, static_cast<uint64_t>(p));
@@ -223,14 +226,16 @@ MonteCarloReport MonteCarloEngine::run_gbm_portfolio(
             double wealth = S0, peak = S0, max_dd = 0.0;
 
             for (size_t t = 0; t < H; ++t) {
-                for (size_t i = 0; i < un; ++i) z[i] = rng.normal();
+                for (size_t i = 0; i < un; ++i)
+                    z[i] = rng.normal();
 
                 double port_growth = 0.0;   // constant-mix: sum_i w_i * gross_i
                 double port_value = 0.0;    // buy-and-hold: sum_i w_i * P_i(t) / P_i(0)
                 for (size_t i = 0; i < un; ++i) {
                     double shock = 0.0;
                     const double* Li = &L_flat[i * un];
-                    for (size_t j = 0; j <= i; ++j) shock += Li[j] * z[j];
+                    for (size_t j = 0; j <= i; ++j)
+                        shock += Li[j] * z[j];
                     const double gross = std::exp(drift[i] + shock);
                     if (rebalance) {
                         port_growth += w[i] * gross;
@@ -249,10 +254,11 @@ MonteCarloReport MonteCarloEngine::run_gbm_portfolio(
         }
     }
 
-    const double elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+    const double elapsed_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
     return summarize(terminal_wealth, max_drawdowns, config_, elapsed_ms, threads,
                      std::string("Correlated multi-asset GBM (Cholesky, ") +
-                     (rebalance ? "daily rebalanced)" : "buy-and-hold)"));
+                         (rebalance ? "daily rebalanced)" : "buy-and-hold)"));
 }
 
 std::string MonteCarloEngine::generate_text_report(const MonteCarloReport& r) {
@@ -270,14 +276,16 @@ std::string MonteCarloEngine::generate_text_report(const MonteCarloReport& r) {
     ss << "Horizon:             " << r.horizon_days << " trading days (" << years << " yrs)\n";
     ss << "Initial Capital:     $" << S0 << "\n";
     ss << "Computation Time:    " << std::setprecision(1) << r.elapsed_ms << " ms on " << r.threads_used
-       << (r.threads_used == 1 ? " thread" : " threads")
-       << "  (" << std::setprecision(0) << r.paths_per_second << " paths/s)\n";
+       << (r.threads_used == 1 ? " thread" : " threads") << "  (" << std::setprecision(0)
+       << r.paths_per_second << " paths/s)\n";
     ss << "-------------------------------------------------------------------------\n";
     ss << " TERMINAL WEALTH DISTRIBUTION\n";
     ss << "-------------------------------------------------------------------------\n";
     ss << std::setprecision(2);
-    ss << "  Expected (Mean):     $" << r.mean_terminal_wealth << " (" << pct(r.mean_terminal_wealth) << " %)\n";
-    ss << "  Median (50th %ile):  $" << r.median_terminal_wealth << " (" << pct(r.median_terminal_wealth) << " %)\n";
+    ss << "  Expected (Mean):     $" << r.mean_terminal_wealth << " (" << pct(r.mean_terminal_wealth)
+       << " %)\n";
+    ss << "  Median (50th %ile):  $" << r.median_terminal_wealth << " (" << pct(r.median_terminal_wealth)
+       << " %)\n";
     ss << "  Std Deviation:       $" << r.std_terminal_wealth << "\n";
     ss << "  99th Percentile:     $" << r.p99_wealth << " (" << pct(r.p99_wealth) << " %)\n";
     ss << "  95th Percentile:     $" << r.p95_wealth << " (" << pct(r.p95_wealth) << " %)\n";
@@ -301,4 +309,4 @@ std::string MonteCarloEngine::generate_text_report(const MonteCarloReport& r) {
     return ss.str();
 }
 
-} // namespace quant::simulation
+}   // namespace quant::simulation

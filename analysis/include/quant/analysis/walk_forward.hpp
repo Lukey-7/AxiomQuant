@@ -28,7 +28,8 @@ struct WindowPerformance {
 /**
  * @brief Performance statistics of a daily simple-return series.
  */
-[[nodiscard]] WindowPerformance performance_from_returns(const std::vector<double>& returns, double risk_free_rate);
+[[nodiscard]] WindowPerformance performance_from_returns(const std::vector<double>& returns,
+                                                         double risk_free_rate);
 
 /**
  * @brief Backtests `strategy` on timeline window [begin, end).
@@ -39,15 +40,13 @@ struct WindowPerformance {
  *
  * @param window_returns Optional output: daily returns inside the window.
  */
-[[nodiscard]] WindowPerformance evaluate_window(
-    const data::MarketDataUniverse& universe,
-    backtest::Strategy& strategy,
-    const BacktestSetup& setup,
-    size_t begin,
-    size_t end,
-    size_t warmup_bars,
-    std::vector<double>* window_returns = nullptr
-);
+[[nodiscard]] WindowPerformance evaluate_window(const data::MarketDataUniverse& universe,
+                                                backtest::Strategy& strategy,
+                                                const BacktestSetup& setup,
+                                                size_t begin,
+                                                size_t end,
+                                                size_t warmup_bars,
+                                                std::vector<double>* window_returns = nullptr);
 
 struct SmaSweepPoint {
     size_t fast_period{0};
@@ -59,16 +58,14 @@ struct SmaSweepPoint {
  * @brief Evaluates an SMA crossover for every (fast < slow) pair on window [begin, end).
  *        Pairs are evaluated in parallel (OpenMP) and returned sorted by Sharpe ratio, best first.
  */
-[[nodiscard]] std::vector<SmaSweepPoint> sweep_sma_parameters(
-    const data::MarketDataUniverse& universe,
-    const std::string& ticker,
-    const std::vector<size_t>& fast_grid,
-    const std::vector<size_t>& slow_grid,
-    const BacktestSetup& setup,
-    size_t begin,
-    size_t end,
-    size_t warmup_bars
-);
+[[nodiscard]] std::vector<SmaSweepPoint> sweep_sma_parameters(const data::MarketDataUniverse& universe,
+                                                              const std::string& ticker,
+                                                              const std::vector<size_t>& fast_grid,
+                                                              const std::vector<size_t>& slow_grid,
+                                                              const BacktestSetup& setup,
+                                                              size_t begin,
+                                                              size_t end,
+                                                              size_t warmup_bars);
 
 struct WalkForwardConfig {
     size_t train_bars{504};   // ~2 years of daily bars
@@ -84,17 +81,17 @@ struct WalkForwardFold {
     std::string test_end;
     size_t fast_period{0};
     size_t slow_period{0};
-    WindowPerformance in_sample;      // best parameters on the training window
-    WindowPerformance out_of_sample;  // same parameters on the following unseen window
-    WindowPerformance benchmark;      // buy-and-hold on the same unseen window
+    WindowPerformance in_sample;       // best parameters on the training window
+    WindowPerformance out_of_sample;   // same parameters on the following unseen window
+    WindowPerformance benchmark;       // buy-and-hold on the same unseen window
 };
 
 struct WalkForwardResult {
     size_t train_bars{0};
     size_t test_bars{0};
     std::vector<WalkForwardFold> folds;
-    std::vector<double> oos_returns;        // stitched out-of-sample strategy returns
-    std::vector<double> benchmark_returns;  // stitched buy-and-hold returns over the same days
+    std::vector<double> oos_returns;         // stitched out-of-sample strategy returns
+    std::vector<double> benchmark_returns;   // stitched buy-and-hold returns over the same days
     WindowPerformance stitched_strategy;
     WindowPerformance stitched_benchmark;
     double mean_in_sample_sharpe{0.0};
@@ -109,13 +106,12 @@ struct WalkForwardResult {
  * the winning pair unchanged on the next `test_bars` bars, which the optimiser never saw. The
  * windows roll forward by `test_bars`, so the test windows tile the data without overlap.
  */
-[[nodiscard]] WalkForwardResult run_sma_walk_forward(
-    const data::MarketDataUniverse& universe,
-    const std::string& ticker,
-    const WalkForwardConfig& config,
-    const BacktestSetup& setup
-);
+[[nodiscard]] WalkForwardResult run_sma_walk_forward(const data::MarketDataUniverse& universe,
+                                                     const std::string& ticker,
+                                                     const WalkForwardConfig& config,
+                                                     const BacktestSetup& setup);
 
-[[nodiscard]] std::string format_walk_forward_report(const WalkForwardResult& result, const std::string& ticker);
+[[nodiscard]] std::string format_walk_forward_report(const WalkForwardResult& result,
+                                                     const std::string& ticker);
 
-} // namespace quant::analysis
+}   // namespace quant::analysis

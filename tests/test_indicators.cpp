@@ -14,9 +14,9 @@ TEST_CASE(TestIndicators_SMA) {
     EXPECT_EQ(sma3.size(), 5);
     EXPECT_TRUE(quant::indicators::is_nan(sma3[0]));
     EXPECT_TRUE(quant::indicators::is_nan(sma3[1]));
-    EXPECT_NEAR(sma3[2], 20.0, 1e-6); // (10 + 20 + 30) / 3 = 20
-    EXPECT_NEAR(sma3[3], 30.0, 1e-6); // (20 + 30 + 40) / 3 = 30
-    EXPECT_NEAR(sma3[4], 40.0, 1e-6); // (30 + 40 + 50) / 3 = 40
+    EXPECT_NEAR(sma3[2], 20.0, 1e-6);   // (10 + 20 + 30) / 3 = 20
+    EXPECT_NEAR(sma3[3], 30.0, 1e-6);   // (20 + 30 + 40) / 3 = 30
+    EXPECT_NEAR(sma3[4], 40.0, 1e-6);   // (30 + 40 + 50) / 3 = 40
 }
 
 TEST_CASE(TestIndicators_EMA) {
@@ -39,14 +39,16 @@ TEST_CASE(TestIndicators_EMA) {
 TEST_CASE(TestIndicators_RSI_Monotonic) {
     // Strictly increasing prices -> RSI should be 100.0
     std::vector<double> rising(20);
-    for (size_t i = 0; i < 20; ++i) rising[i] = 100.0 + static_cast<double>(i) * 5.0;
+    for (size_t i = 0; i < 20; ++i)
+        rising[i] = 100.0 + static_cast<double>(i) * 5.0;
 
     auto rsi_up = quant::indicators::RSI::calculate(rising, 14);
     EXPECT_NEAR(rsi_up.back(), 100.0, 1e-4);
 
     // Strictly decreasing prices -> RSI should be 0.0
     std::vector<double> falling(20);
-    for (size_t i = 0; i < 20; ++i) falling[i] = 200.0 - static_cast<double>(i) * 5.0;
+    for (size_t i = 0; i < 20; ++i)
+        falling[i] = 200.0 - static_cast<double>(i) * 5.0;
 
     auto rsi_down = quant::indicators::RSI::calculate(falling, 14);
     EXPECT_NEAR(rsi_down.back(), 0.0, 1e-4);
@@ -99,8 +101,8 @@ TEST_CASE(TestIndicators_RollingVolatility) {
 
 TEST_CASE(TestIndicators_ATR) {
     std::vector<double> high = {10.0, 12.0, 15.0, 14.0, 16.0};
-    std::vector<double> low  = { 8.0,  9.0, 11.0, 10.0, 12.0};
-    std::vector<double> close= { 9.0, 11.0, 13.0, 12.0, 15.0};
+    std::vector<double> low = {8.0, 9.0, 11.0, 10.0, 12.0};
+    std::vector<double> close = {9.0, 11.0, 13.0, 12.0, 15.0};
 
     auto atr = quant::indicators::ATR::calculate(high, low, close, 3);
     EXPECT_EQ(atr.size(), 5);

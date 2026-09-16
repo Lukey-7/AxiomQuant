@@ -141,16 +141,19 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--bootstrap") opt.bootstrap = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-test") opt.wf_test = static_cast<size_t>(parse_uint(arg, value()));
-        else if (arg == "--db") { opt.db_path = value(); opt.use_db = true; }
-        else if (arg == "--no-db") opt.use_db = false;
-        else if (arg == "--export-dir") { opt.export_dir = value(); opt.has_export = true; }
-        else if (arg == "--fill") {
+        else if (arg == "--db") {
+            opt.db_path = value();
+            opt.use_db = true;
+        } else if (arg == "--no-db") opt.use_db = false;
+        else if (arg == "--export-dir") {
+            opt.export_dir = value();
+            opt.has_export = true;
+        } else if (arg == "--fill") {
             const std::string mode = value();
             if (mode == "open") opt.fill = backtest::FillTiming::NextBarOpen;
             else if (mode == "close") opt.fill = backtest::FillTiming::SameBarClose;
             else throw std::invalid_argument("--fill expects 'open' or 'close', got '" + mode + "'");
-        }
-        else if (!arg.empty() && arg[0] != '-' && opt.data_dir.empty()) opt.data_dir = arg;
+        } else if (!arg.empty() && arg[0] != '-' && opt.data_dir.empty()) opt.data_dir = arg;
         else throw std::invalid_argument("unknown option: " + arg);
     }
 
@@ -162,8 +165,10 @@ Options parse_args(int argc, char* argv[]) {
     if (opt.paths == 0) throw std::invalid_argument("--paths must be positive");
     if (opt.horizon == 0) throw std::invalid_argument("--horizon must be positive");
     if (opt.bootstrap == 0) throw std::invalid_argument("--bootstrap must be positive");
-    if (!(opt.max_weight > 0.0) || opt.max_weight > 1.0) throw std::invalid_argument("--max-weight must be in (0, 1]");
-    if (opt.wf_train < 2 || opt.wf_test < 2) throw std::invalid_argument("--wf-train and --wf-test must be at least 2");
+    if (!(opt.max_weight > 0.0) || opt.max_weight > 1.0)
+        throw std::invalid_argument("--max-weight must be in (0, 1]");
+    if (opt.wf_train < 2 || opt.wf_test < 2)
+        throw std::invalid_argument("--wf-train and --wf-test must be at least 2");
     return opt;
 }
 
@@ -209,24 +214,19 @@ std::ofstream open_csv(const fs::path& dir, const std::string& name) {
 void print_tournament(const std::vector<StrategyRun>& runs) {
     const std::string rule(115, '-');
     std::cout << rule << "\n";
-    std::cout << std::left << std::setw(42) << "Strategy" << std::right
-              << std::setw(9) << "Return" << std::setw(8) << "CAGR" << std::setw(8) << "Vol"
-              << std::setw(8) << "Sharpe" << std::setw(9) << "Sortino" << std::setw(9) << "MaxDD"
-              << std::setw(8) << "Fills" << std::setw(9) << "WinRate" << std::setw(10) << "Costs$" << "\n";
+    std::cout << std::left << std::setw(42) << "Strategy" << std::right << std::setw(9) << "Return"
+              << std::setw(8) << "CAGR" << std::setw(8) << "Vol" << std::setw(8) << "Sharpe" << std::setw(9)
+              << "Sortino" << std::setw(9) << "MaxDD" << std::setw(8) << "Fills" << std::setw(9) << "WinRate"
+              << std::setw(10) << "Costs$" << "\n";
     std::cout << rule << "\n";
     for (const auto& run : runs) {
         const auto& s = run.summary;
         std::cout << std::left << std::setw(42) << run.result.strategy_name << std::right << std::fixed
-                  << std::setprecision(1)
-                  << std::setw(8) << (s.total_return * 100.0) << "%"
-                  << std::setw(7) << (s.cagr * 100.0) << "%"
-                  << std::setw(7) << (s.annualized_volatility * 100.0) << "%"
-                  << std::setprecision(2)
-                  << std::setw(8) << s.sharpe_ratio
-                  << std::setw(9) << s.sortino_ratio
-                  << std::setprecision(1)
-                  << std::setw(8) << (s.max_drawdown * 100.0) << "%"
-                  << std::setw(8) << run.result.total_trades;
+                  << std::setprecision(1) << std::setw(8) << (s.total_return * 100.0) << "%" << std::setw(7)
+                  << (s.cagr * 100.0) << "%" << std::setw(7) << (s.annualized_volatility * 100.0) << "%"
+                  << std::setprecision(2) << std::setw(8) << s.sharpe_ratio << std::setw(9) << s.sortino_ratio
+                  << std::setprecision(1) << std::setw(8) << (s.max_drawdown * 100.0) << "%" << std::setw(8)
+                  << run.result.total_trades;
         if (s.trade_details.closed_trades > 0) {
             std::cout << std::setw(8) << (s.trade_details.win_rate * 100.0) << "%";
         } else {
@@ -237,7 +237,10 @@ void print_tournament(const std::vector<StrategyRun>& runs) {
     std::cout << rule << "\n";
 }
 
-void persist_run(data::SqliteStorage& storage, const StrategyRun& run, const std::string& run_id, const std::string& created_at) {
+void persist_run(data::SqliteStorage& storage,
+                 const StrategyRun& run,
+                 const std::string& run_id,
+                 const std::string& created_at) {
     data::BacktestRunRecord record;
     record.run_id = run_id;
     record.strategy_name = run.result.strategy_name;
@@ -255,9 +258,8 @@ void persist_run(data::SqliteStorage& storage, const StrategyRun& run, const std
     record.cvar_95 = run.summary.cvar_95_historical;
     record.total_trades = static_cast<int>(run.result.trades.size());
     record.win_rate = run.summary.trade_details.win_rate;
-    record.profit_factor = std::isinf(run.summary.trade_details.profit_factor)
-        ? 0.0
-        : run.summary.trade_details.profit_factor;
+    record.profit_factor =
+        std::isinf(run.summary.trade_details.profit_factor) ? 0.0 : run.summary.trade_details.profit_factor;
     record.created_at = created_at;
     storage.save_backtest_run(record);
 
@@ -305,15 +307,15 @@ int run_pipeline(const Options& opt) {
 
     std::vector<std::string> symbols;
     symbols.reserve(raw_data.size());
-    for (const auto& entry : raw_data) symbols.push_back(entry.first);
+    for (const auto& entry : raw_data)
+        symbols.push_back(entry.first);
     std::sort(symbols.begin(), symbols.end());
 
     data::MarketDataUniverse universe;
     for (const auto& symbol : symbols) {
         auto& series = raw_data[symbol];
-        std::cout << "  - " << std::setw(6) << std::left << symbol << std::right
-                  << ": " << series.size() << " bars ("
-                  << series.dates.front() << " to " << series.dates.back() << ")\n";
+        std::cout << "  - " << std::setw(6) << std::left << symbol << std::right << ": " << series.size()
+                  << " bars (" << series.dates.front() << " to " << series.dates.back() << ")\n";
         universe.add_asset(symbol, std::move(series));
     }
     universe.synchronize_timeline(true);
@@ -322,19 +324,21 @@ int run_pipeline(const Options& opt) {
     const auto& tickers = universe.get_tickers();
     std::string ticker = opt.ticker;
     if (std::find(tickers.begin(), tickers.end(), ticker) == tickers.end()) {
-        std::cout << "  note: '" << ticker << "' is not in this universe, using " << tickers.front() << " instead\n";
+        std::cout << "  note: '" << ticker << "' is not in this universe, using " << tickers.front()
+                  << " instead\n";
         ticker = tickers.front();
     }
-    std::cout << "  Synchronized timeline: " << universe.size() << " trading days across "
-              << tickers.size() << " assets (" << universe.get_timeline().front()
-              << " to " << universe.get_timeline().back() << ")\n";
+    std::cout << "  Synchronized timeline: " << universe.size() << " trading days across " << tickers.size()
+              << " assets (" << universe.get_timeline().front() << " to " << universe.get_timeline().back()
+              << ")\n";
 
     // ---------------------------------------------------------------- sqlite
     section(2, "SQLite persistence");
     std::unique_ptr<data::SqliteStorage> storage;
     if (opt.use_db) {
         storage = std::make_unique<data::SqliteStorage>(opt.db_path);
-        for (const auto& symbol : tickers) storage->save_market_data(symbol, universe.get_series(symbol));
+        for (const auto& symbol : tickers)
+            storage->save_market_data(symbol, universe.get_series(symbol));
         std::cout << "  Stored " << tickers.size() << " price histories in " << opt.db_path.string() << "\n";
     } else {
         std::cout << "  Skipped (--no-db)\n";
@@ -354,13 +358,14 @@ int run_pipeline(const Options& opt) {
 
     const size_t last = closes.size() - 1;
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "  Last bar:         " << universe.get_timeline()[last] << "   close $" << closes[last] << "\n";
+    std::cout << "  Last bar:         " << universe.get_timeline()[last] << "   close $" << closes[last]
+              << "\n";
     std::cout << "  SMA(20)/SMA(50):  $" << sma20[last] << " / $" << sma50[last] << "\n";
     std::cout << "  RSI(14):          " << rsi14[last] << "   (overbought > 70, oversold < 30)\n";
     std::cout << "  MACD(12,26,9):    line " << macd.macd_line[last] << ", signal " << macd.signal_line[last]
               << ", hist " << macd.histogram[last] << "\n";
-    std::cout << "  Bollinger(20,2):  $" << bb.lower[last] << " / $" << bb.middle[last] << " / $" << bb.upper[last]
-              << "   (%B " << bb.percent_b[last] << ")\n";
+    std::cout << "  Bollinger(20,2):  $" << bb.lower[last] << " / $" << bb.middle[last] << " / $"
+              << bb.upper[last] << "   (%B " << bb.percent_b[last] << ")\n";
     std::cout << "  Realized vol 20d: " << (vol20[last] * 100.0) << " % annualized\n";
     std::cout << "  ATR(14):          $" << atr14[series.size() - 1] << "\n";
 
@@ -377,9 +382,11 @@ int run_pipeline(const Options& opt) {
     backtest::EngineConfig engine_cfg;
     engine_cfg.fill_timing = opt.fill;
 
-    std::cout << "  Costs: $0.005/share (min $1.00) + 1 bp notional, 3 bp spread, 2 bp slippage, sqrt market impact\n";
+    std::cout << "  Costs: $0.005/share (min $1.00) + 1 bp notional, 3 bp spread, 2 bp slippage, sqrt market "
+                 "impact\n";
     std::cout << "  Fills: "
-              << (opt.fill == backtest::FillTiming::NextBarOpen ? "next bar open (no look-ahead)" : "signal bar close")
+              << (opt.fill == backtest::FillTiming::NextBarOpen ? "next bar open (no look-ahead)"
+                                                                : "signal bar close")
               << "   Capital: $" << std::setprecision(0) << opt.capital << std::setprecision(2) << "\n";
 
     backtest::BacktestEngine engine(universe, backtest::Portfolio(opt.capital),
@@ -390,7 +397,8 @@ int run_pipeline(const Options& opt) {
         std::vector<std::unique_ptr<backtest::Strategy>> built;
         built.push_back(std::make_unique<backtest::strategies::BuyAndHoldStrategy>(ticker, 0.99));
         built.push_back(std::make_unique<backtest::strategies::SmaCrossoverStrategy>(ticker, 20, 50, 0.95));
-        built.push_back(std::make_unique<backtest::strategies::RsiMeanReversionStrategy>(ticker, 14, 30.0, 70.0, 0.95));
+        built.push_back(
+            std::make_unique<backtest::strategies::RsiMeanReversionStrategy>(ticker, 14, 30.0, 70.0, 0.95));
         built.push_back(std::make_unique<backtest::strategies::MultiAssetMomentumStrategy>(60, 20, 2, 0.95));
         return built;
     };
@@ -405,7 +413,8 @@ int run_pipeline(const Options& opt) {
         runs.push_back(std::move(run));
     }
     const double tournament_ms =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tournament_start).count();
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tournament_start)
+            .count();
 
     print_tournament(runs);
     std::cout << "  " << runs.size() << " backtests over " << universe.size() << " bars in "
@@ -421,17 +430,20 @@ int run_pipeline(const Options& opt) {
 
     std::vector<double> best_equity;
     best_equity.reserve(best.result.equity_curve.size());
-    for (const auto& point : best.result.equity_curve) best_equity.push_back(point.equity);
+    for (const auto& point : best.result.equity_curve)
+        best_equity.push_back(point.equity);
     std::cout << risk::RiskReport::render_ascii_chart(best_equity, 60, 12);
 
     if (storage) {
         const std::string created_at = utc_now_iso8601();
         const auto stamp = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count());
+                                              std::chrono::system_clock::now().time_since_epoch())
+                                              .count());
         for (size_t i = 0; i < runs.size(); ++i) {
             persist_run(*storage, runs[i], "RUN_" + stamp + "_" + std::to_string(i), created_at);
         }
-        std::cout << "  Persisted " << runs.size() << " runs (summary, fills, equity curves) at " << created_at << "\n";
+        std::cout << "  Persisted " << runs.size() << " runs (summary, fills, equity curves) at "
+                  << created_at << "\n";
     }
 
     // --------------------------------------------------- cost of look-ahead
@@ -440,16 +452,16 @@ int run_pipeline(const Options& opt) {
     {
         backtest::EngineConfig biased_cfg = engine_cfg;
         biased_cfg.fill_timing = (engine_cfg.fill_timing == backtest::FillTiming::NextBarOpen)
-            ? backtest::FillTiming::SameBarClose
-            : backtest::FillTiming::NextBarOpen;
+                                     ? backtest::FillTiming::SameBarClose
+                                     : backtest::FillTiming::NextBarOpen;
         backtest::BacktestEngine biased_engine(universe, backtest::Portfolio(opt.capital),
                                                backtest::ExecutionModel(exec_cfg), biased_cfg);
 
         std::cout << "\n  COST OF LOOK-AHEAD - next-bar-open fills vs trading the signal bar's close\n";
         std::cout << "  " << std::string(88, '-') << "\n";
-        std::cout << "  " << std::left << std::setw(42) << "Strategy" << std::right
-                  << std::setw(11) << "Sharpe" << std::setw(13) << "Sharpe(LA)" << std::setw(9) << "delta"
-                  << std::setw(11) << "Return" << std::setw(13) << "Return(LA)" << "\n";
+        std::cout << "  " << std::left << std::setw(42) << "Strategy" << std::right << std::setw(11)
+                  << "Sharpe" << std::setw(13) << "Sharpe(LA)" << std::setw(9) << "delta" << std::setw(11)
+                  << "Return" << std::setw(13) << "Return(LA)" << "\n";
         std::cout << "  " << std::string(88, '-') << "\n";
 
         auto biased_strategies = make_strategies();
@@ -457,16 +469,15 @@ int run_pipeline(const Options& opt) {
             const auto biased_result = biased_engine.run(*biased_strategies[i]);
             const auto biased_summary = risk::RiskReport::evaluate(biased_result, opt.risk_free);
             std::cout << "  " << std::left << std::setw(42) << runs[i].result.strategy_name << std::right
-                      << std::fixed << std::setprecision(2)
-                      << std::setw(11) << runs[i].summary.sharpe_ratio
-                      << std::setw(13) << biased_summary.sharpe_ratio
-                      << std::setw(9) << (biased_summary.sharpe_ratio - runs[i].summary.sharpe_ratio)
-                      << std::setprecision(1)
-                      << std::setw(10) << (runs[i].summary.total_return * 100.0) << "%"
-                      << std::setw(12) << (biased_summary.total_return * 100.0) << "%\n";
+                      << std::fixed << std::setprecision(2) << std::setw(11) << runs[i].summary.sharpe_ratio
+                      << std::setw(13) << biased_summary.sharpe_ratio << std::setw(9)
+                      << (biased_summary.sharpe_ratio - runs[i].summary.sharpe_ratio) << std::setprecision(1)
+                      << std::setw(10) << (runs[i].summary.total_return * 100.0) << "%" << std::setw(12)
+                      << (biased_summary.total_return * 100.0) << "%\n";
         }
         std::cout << "  " << std::string(88, '-') << "\n";
-        std::cout << "  (LA) fills at the close that generated the signal - information no live trader has.\n";
+        std::cout
+            << "  (LA) fills at the close that generated the signal - information no live trader has.\n";
     }
 
     // ----------------------------------------------------------------- sweep
@@ -480,12 +491,13 @@ int run_pipeline(const Options& opt) {
     const std::vector<size_t> fast_grid{5, 10, 15, 20, 30, 40, 50};
     const std::vector<size_t> slow_grid{50, 75, 100, 125, 150, 200};
     const auto sweep_start = std::chrono::steady_clock::now();
-    const auto sweep = analysis::sweep_sma_parameters(universe, ticker, fast_grid, slow_grid, setup,
-                                                      0, universe.size(), 0);
+    const auto sweep =
+        analysis::sweep_sma_parameters(universe, ticker, fast_grid, slow_grid, setup, 0, universe.size(), 0);
     const double sweep_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sweep_start).count();
 
-    std::cout << "  " << sweep.size() << " parameter pairs backtested in " << std::setprecision(1) << sweep_ms << " ms\n";
+    std::cout << "  " << sweep.size() << " parameter pairs backtested in " << std::setprecision(1) << sweep_ms
+              << " ms\n";
     std::cout << "  Rank  Fast/Slow    Sharpe   Return    MaxDD  Fills\n";
     for (size_t i = 0; i < std::min<size_t>(5, sweep.size()); ++i) {
         const auto& p = sweep[i];
@@ -493,13 +505,14 @@ int run_pipeline(const Options& opt) {
         std::cout << std::setw(6) << (i + 1) << "  " << std::left << std::setw(9) << params << std::right
                   << std::setprecision(2) << std::setw(8) << p.performance.sharpe_ratio
                   << std::setprecision(1) << std::setw(8) << (p.performance.total_return * 100.0) << "%"
-                  << std::setw(8) << (p.performance.max_drawdown * 100.0) << "%"
-                  << std::setw(7) << p.performance.trades << "\n";
+                  << std::setw(8) << (p.performance.max_drawdown * 100.0) << "%" << std::setw(7)
+                  << p.performance.trades << "\n";
     }
     if (!sweep.empty()) {
         std::vector<double> sharpes;
         sharpes.reserve(sweep.size());
-        for (const auto& p : sweep) sharpes.push_back(p.performance.sharpe_ratio);
+        for (const auto& p : sweep)
+            sharpes.push_back(p.performance.sharpe_ratio);
         std::sort(sharpes.begin(), sharpes.end());
         const double median = sharpes[sharpes.size() / 2];
         const double benchmark_sharpe = runs.front().summary.sharpe_ratio;
@@ -508,19 +521,21 @@ int run_pipeline(const Options& opt) {
         std::cout << std::setprecision(2);
         std::cout << "  Sharpe across the grid: best " << sharpes.back() << ", median " << median
                   << ", worst " << sharpes.front() << "\n";
-        std::cout << "  Pairs beating buy & hold (Sharpe " << benchmark_sharpe << "): " << beating
-                  << " / " << sweep.size() << "\n";
+        std::cout << "  Pairs beating buy & hold (Sharpe " << benchmark_sharpe << "): " << beating << " / "
+                  << sweep.size() << "\n";
         std::cout << "  NOTE: every number above is in-sample. The top pair is the luckiest pair on this\n";
         std::cout << "        sample, not a forecast - the walk-forward test below is the honest one.\n";
 
         // Deflate the winner's Sharpe for the number of pairs the search tried.
         const auto& best = sweep.front();
-        backtest::strategies::SmaCrossoverStrategy best_strategy(ticker, best.fast_period, best.slow_period, 0.95);
+        backtest::strategies::SmaCrossoverStrategy best_strategy(ticker, best.fast_period, best.slow_period,
+                                                                 0.95);
         std::vector<double> best_returns;
         (void)analysis::evaluate_window(universe, best_strategy, setup, 0, universe.size(), 0, &best_returns);
         std::vector<double> trial_sharpes;
         trial_sharpes.reserve(sweep.size());
-        for (const auto& p : sweep) trial_sharpes.push_back(p.performance.sharpe_ratio);
+        for (const auto& p : sweep)
+            trial_sharpes.push_back(p.performance.sharpe_ratio);
         const auto deflated = analysis::deflated_sharpe_ratio(best_returns, trial_sharpes, opt.risk_free);
         std::cout << "\n" << analysis::format_deflated_sharpe_report(deflated);
     }
@@ -562,13 +577,17 @@ int run_pipeline(const Options& opt) {
 
     double shrinkage = 0.0;
     const Eigen::VectorXd mu = optimization::PortfolioStats::compute_expected_returns(returns, 252.0);
-    const Eigen::MatrixXd cov = optimization::PortfolioStats::compute_ledoit_wolf_covariance(returns, 252.0, &shrinkage);
-    std::cout << "  Ledoit-Wolf shrinkage towards constant correlation: delta = "
-              << std::setprecision(4) << shrinkage << "\n";
+    const Eigen::MatrixXd cov =
+        optimization::PortfolioStats::compute_ledoit_wolf_covariance(returns, 252.0, &shrinkage);
+    std::cout << "  Ledoit-Wolf shrinkage towards constant correlation: delta = " << std::setprecision(4)
+              << shrinkage << "\n";
 
-    const auto gmv_uncon = optimization::UnconstrainedMarkowitz::global_minimum_variance(mu, cov, opt.risk_free);
-    const auto tan_uncon = optimization::UnconstrainedMarkowitz::maximum_sharpe_portfolio(mu, cov, opt.risk_free);
-    const auto risk_parity = optimization::UnconstrainedMarkowitz::risk_parity_portfolio(mu, cov, opt.risk_free);
+    const auto gmv_uncon =
+        optimization::UnconstrainedMarkowitz::global_minimum_variance(mu, cov, opt.risk_free);
+    const auto tan_uncon =
+        optimization::UnconstrainedMarkowitz::maximum_sharpe_portfolio(mu, cov, opt.risk_free);
+    const auto risk_parity =
+        optimization::UnconstrainedMarkowitz::risk_parity_portfolio(mu, cov, opt.risk_free);
 
     optimization::ConstrainedQpConfig qp_cfg;
     qp_cfg.min_weight = 0.0;
@@ -578,12 +597,14 @@ int run_pipeline(const Options& opt) {
     const auto gmv_con = qp.global_minimum_variance(mu, cov);
     const auto tan_con = qp.maximum_sharpe_portfolio(mu, cov);
 
-    std::cout << optimization::EfficientFrontier::generate_portfolio_report(
-        tickers, gmv_uncon, tan_uncon, gmv_con, tan_con, risk_parity);
+    std::cout << optimization::EfficientFrontier::generate_portfolio_report(tickers, gmv_uncon, tan_uncon,
+                                                                            gmv_con, tan_con, risk_parity);
 
     const auto frontier = optimization::EfficientFrontier::compute_constrained_frontier(mu, cov, qp_cfg, 35);
-    const optimization::FrontierPoint gmv_pt{gmv_con.expected_return, gmv_con.volatility, gmv_con.sharpe_ratio, gmv_con.weights};
-    const optimization::FrontierPoint tan_pt{tan_con.expected_return, tan_con.volatility, tan_con.sharpe_ratio, tan_con.weights};
+    const optimization::FrontierPoint gmv_pt{gmv_con.expected_return, gmv_con.volatility,
+                                             gmv_con.sharpe_ratio, gmv_con.weights};
+    const optimization::FrontierPoint tan_pt{tan_con.expected_return, tan_con.volatility,
+                                             tan_con.sharpe_ratio, tan_con.weights};
     std::cout << optimization::EfficientFrontier::render_ascii_frontier(frontier, gmv_pt, tan_pt, 60, 12);
 
     // ------------------------------------------------------------ monte carlo
@@ -613,9 +634,9 @@ int run_pipeline(const Options& opt) {
                        "var95,cvar95,fills,closed_trades,win_rate,transaction_costs\n";
         for (const auto& run : runs) {
             const auto& s = run.summary;
-            summary_csv << csv_field(run.result.strategy_name) << ',' << s.total_return << ',' << s.cagr << ','
-                        << s.annualized_volatility << ',' << s.sharpe_ratio << ',' << s.sortino_ratio << ','
-                        << s.calmar_ratio << ',' << s.max_drawdown << ',' << s.var_95_historical << ','
+            summary_csv << csv_field(run.result.strategy_name) << ',' << s.total_return << ',' << s.cagr
+                        << ',' << s.annualized_volatility << ',' << s.sharpe_ratio << ',' << s.sortino_ratio
+                        << ',' << s.calmar_ratio << ',' << s.max_drawdown << ',' << s.var_95_historical << ','
                         << s.cvar_95_historical << ',' << run.result.total_trades << ','
                         << s.trade_details.closed_trades << ',' << s.trade_details.win_rate << ','
                         << s.total_transaction_costs << '\n';
@@ -623,29 +644,33 @@ int run_pipeline(const Options& opt) {
 
         auto equity_csv = open_csv(opt.export_dir, "equity_curves.csv");
         equity_csv << "date";
-        for (const auto& run : runs) equity_csv << ',' << csv_field(run.result.strategy_name);
+        for (const auto& run : runs)
+            equity_csv << ',' << csv_field(run.result.strategy_name);
         equity_csv << '\n';
         for (size_t t = 0; t < universe.size(); ++t) {
             equity_csv << universe.get_timeline()[t];
             for (const auto& run : runs) {
-                equity_csv << ',' << (t < run.result.equity_curve.size() ? run.result.equity_curve[t].equity : 0.0);
+                equity_csv << ','
+                           << (t < run.result.equity_curve.size() ? run.result.equity_curve[t].equity : 0.0);
             }
             equity_csv << '\n';
         }
 
         auto trades_csv = open_csv(opt.export_dir, "trades.csv");
-        trades_csv << "strategy,date,ticker,side,quantity,execution_price,commission,slippage,realized_pnl,closes_position\n";
+        trades_csv << "strategy,date,ticker,side,quantity,execution_price,commission,slippage,realized_pnl,"
+                      "closes_position\n";
         for (const auto& run : runs) {
             for (const auto& fill : run.result.trades) {
-                trades_csv << csv_field(run.result.strategy_name) << ',' << fill.date << ',' << fill.ticker << ','
-                           << backtest::side_to_string(fill.side) << ',' << fill.quantity << ','
+                trades_csv << csv_field(run.result.strategy_name) << ',' << fill.date << ',' << fill.ticker
+                           << ',' << backtest::side_to_string(fill.side) << ',' << fill.quantity << ','
                            << fill.execution_price << ',' << fill.commission << ',' << fill.slippage << ','
                            << fill.realized_pnl << ',' << (fill.closes_position ? 1 : 0) << '\n';
             }
         }
 
         auto weights_csv = open_csv(opt.export_dir, "portfolio_weights.csv");
-        weights_csv << "ticker,gmv_unconstrained,tangency_unconstrained,gmv_constrained,max_sharpe_constrained,risk_parity\n";
+        weights_csv << "ticker,gmv_unconstrained,tangency_unconstrained,gmv_constrained,max_sharpe_"
+                       "constrained,risk_parity\n";
         for (size_t i = 0; i < tickers.size(); ++i) {
             const auto idx = static_cast<Eigen::Index>(i);
             weights_csv << tickers[i] << ',' << gmv_uncon.weights(idx) << ',' << tan_uncon.weights(idx) << ','
@@ -656,7 +681,8 @@ int run_pipeline(const Options& opt) {
         auto frontier_csv = open_csv(opt.export_dir, "efficient_frontier.csv");
         frontier_csv << "expected_return,volatility,sharpe\n";
         for (const auto& point : frontier) {
-            frontier_csv << point.expected_return << ',' << point.volatility << ',' << point.sharpe_ratio << '\n';
+            frontier_csv << point.expected_return << ',' << point.volatility << ',' << point.sharpe_ratio
+                         << '\n';
         }
 
         auto sweep_csv = open_csv(opt.export_dir, "parameter_sweep.csv");
@@ -688,7 +714,7 @@ int run_pipeline(const Options& opt) {
     return 0;
 }
 
-} // namespace
+}   // namespace
 
 int main(int argc, char* argv[]) {
     Options opt;

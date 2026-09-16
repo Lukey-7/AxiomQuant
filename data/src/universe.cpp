@@ -120,9 +120,12 @@ MarketDataUniverse MarketDataUniverse::slice(size_t begin, size_t end) const {
     MarketDataUniverse out;
     out.assets_ = assets_;
     out.tickers_ = tickers_;
-    out.timeline_.assign(timeline_.begin() + static_cast<std::ptrdiff_t>(begin), timeline_.begin() + static_cast<std::ptrdiff_t>(end));
-    out.timestamps_.assign(timestamps_.begin() + static_cast<std::ptrdiff_t>(begin), timestamps_.begin() + static_cast<std::ptrdiff_t>(end));
-    out.snapshots_.assign(snapshots_.begin() + static_cast<std::ptrdiff_t>(begin), snapshots_.begin() + static_cast<std::ptrdiff_t>(end));
+    out.timeline_.assign(timeline_.begin() + static_cast<std::ptrdiff_t>(begin),
+                         timeline_.begin() + static_cast<std::ptrdiff_t>(end));
+    out.timestamps_.assign(timestamps_.begin() + static_cast<std::ptrdiff_t>(begin),
+                           timestamps_.begin() + static_cast<std::ptrdiff_t>(end));
+    out.snapshots_.assign(snapshots_.begin() + static_cast<std::ptrdiff_t>(begin),
+                          snapshots_.begin() + static_cast<std::ptrdiff_t>(end));
     return out;
 }
 
@@ -175,7 +178,8 @@ std::vector<std::vector<double>> MarketDataUniverse::get_aligned_log_returns_mat
     auto close_mat = get_aligned_close_matrix();
     if (close_mat.size() < 2 || tickers_.empty()) return {};
 
-    std::vector<std::vector<double>> log_ret_mat(close_mat.size() - 1, std::vector<double>(tickers_.size(), 0.0));
+    std::vector<std::vector<double>> log_ret_mat(close_mat.size() - 1,
+                                                 std::vector<double>(tickers_.size(), 0.0));
     for (size_t t = 1; t < close_mat.size(); ++t) {
         for (size_t i = 0; i < tickers_.size(); ++i) {
             double prev = close_mat[t - 1][i];
@@ -186,4 +190,4 @@ std::vector<std::vector<double>> MarketDataUniverse::get_aligned_log_returns_mat
     return log_ret_mat;
 }
 
-} // namespace quant::data
+}   // namespace quant::data

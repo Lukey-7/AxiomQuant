@@ -24,7 +24,7 @@ SqliteStorage::~SqliteStorage() {
     }
 }
 
-SqliteStorage::SqliteStorage(SqliteStorage&& other) noexcept 
+SqliteStorage::SqliteStorage(SqliteStorage&& other) noexcept
     : db_(other.db_), db_path_(std::move(other.db_path_)) {
     other.db_ = nullptr;
 }
@@ -131,9 +131,11 @@ void SqliteStorage::save_market_data(const std::string& ticker, const TimeSeries
     execute_sql("BEGIN TRANSACTION;");
 
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "INSERT OR REPLACE INTO market_data (ticker, date, timestamp, open, high, low, close, adj_close, volume) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
-    
+    const char* sql =
+        "INSERT OR REPLACE INTO market_data (ticker, date, timestamp, open, high, low, close, adj_close, "
+        "volume) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         execute_sql("ROLLBACK;");
         throw std::runtime_error("Failed to prepare insert statement for market_data");
@@ -164,8 +166,9 @@ void SqliteStorage::save_market_data(const std::string& ticker, const TimeSeries
 
 TimeSeries SqliteStorage::load_market_data(const std::string& ticker) const {
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT date, timestamp, open, high, low, close, adj_close, volume "
-                      "FROM market_data WHERE ticker = ? ORDER BY timestamp ASC;";
+    const char* sql =
+        "SELECT date, timestamp, open, high, low, close, adj_close, volume "
+        "FROM market_data WHERE ticker = ? ORDER BY timestamp ASC;";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error("Failed to prepare select statement for market_data");
@@ -211,11 +214,12 @@ std::vector<std::string> SqliteStorage::get_stored_tickers() const {
 
 void SqliteStorage::save_backtest_run(const BacktestRunRecord& r) {
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "INSERT OR REPLACE INTO backtest_runs ("
-                      "run_id, strategy_name, start_date, end_date, initial_cash, final_equity, "
-                      "total_return, cagr, sharpe_ratio, sortino_ratio, max_drawdown, calmar_ratio, "
-                      "var_95, cvar_95, total_trades, win_rate, profit_factor, created_at) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    const char* sql =
+        "INSERT OR REPLACE INTO backtest_runs ("
+        "run_id, strategy_name, start_date, end_date, initial_cash, final_equity, "
+        "total_return, cagr, sharpe_ratio, sortino_ratio, max_drawdown, calmar_ratio, "
+        "var_95, cvar_95, total_trades, win_rate, profit_factor, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error("Failed to prepare statement for backtest_runs");
@@ -252,8 +256,10 @@ void SqliteStorage::save_trades(const std::vector<TradeRecord>& trades) {
 
     execute_sql("BEGIN TRANSACTION;");
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "INSERT INTO trades (run_id, ticker, date, timestamp, side, quantity, price, commission, slippage, realized_pnl) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    const char* sql =
+        "INSERT INTO trades (run_id, ticker, date, timestamp, side, quantity, price, commission, slippage, "
+        "realized_pnl) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         execute_sql("ROLLBACK;");
@@ -289,8 +295,9 @@ void SqliteStorage::save_equity_curve(const std::vector<EquityPointRecord>& equi
 
     execute_sql("BEGIN TRANSACTION;");
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "INSERT INTO equity_curve (run_id, date, timestamp, equity, cash, positions_value, drawdown) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
+    const char* sql =
+        "INSERT INTO equity_curve (run_id, date, timestamp, equity, cash, positions_value, drawdown) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         execute_sql("ROLLBACK;");
@@ -320,10 +327,11 @@ void SqliteStorage::save_equity_curve(const std::vector<EquityPointRecord>& equi
 
 std::vector<BacktestRunRecord> SqliteStorage::load_all_backtest_runs() const {
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT run_id, strategy_name, start_date, end_date, initial_cash, final_equity, "
-                      "total_return, cagr, sharpe_ratio, sortino_ratio, max_drawdown, calmar_ratio, "
-                      "var_95, cvar_95, total_trades, win_rate, profit_factor, created_at "
-                      "FROM backtest_runs ORDER BY created_at DESC;";
+    const char* sql =
+        "SELECT run_id, strategy_name, start_date, end_date, initial_cash, final_equity, "
+        "total_return, cagr, sharpe_ratio, sortino_ratio, max_drawdown, calmar_ratio, "
+        "var_95, cvar_95, total_trades, win_rate, profit_factor, created_at "
+        "FROM backtest_runs ORDER BY created_at DESC;";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error("Failed to query backtest_runs");
@@ -360,8 +368,10 @@ std::vector<BacktestRunRecord> SqliteStorage::load_all_backtest_runs() const {
 
 std::vector<TradeRecord> SqliteStorage::load_trades(const std::string& run_id) const {
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT trade_id, run_id, ticker, date, timestamp, side, quantity, price, commission, slippage, realized_pnl "
-                      "FROM trades WHERE run_id = ? ORDER BY timestamp ASC, trade_id ASC;";
+    const char* sql =
+        "SELECT trade_id, run_id, ticker, date, timestamp, side, quantity, price, commission, slippage, "
+        "realized_pnl "
+        "FROM trades WHERE run_id = ? ORDER BY timestamp ASC, trade_id ASC;";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error("Failed to query trades");
@@ -393,8 +403,9 @@ std::vector<TradeRecord> SqliteStorage::load_trades(const std::string& run_id) c
 
 std::vector<EquityPointRecord> SqliteStorage::load_equity_curve(const std::string& run_id) const {
     sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT run_id, date, timestamp, equity, cash, positions_value, drawdown "
-                      "FROM equity_curve WHERE run_id = ? ORDER BY timestamp ASC;";
+    const char* sql =
+        "SELECT run_id, date, timestamp, equity, cash, positions_value, drawdown "
+        "FROM equity_curve WHERE run_id = ? ORDER BY timestamp ASC;";
 
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         throw std::runtime_error("Failed to query equity curve");
@@ -420,4 +431,4 @@ std::vector<EquityPointRecord> SqliteStorage::load_equity_curve(const std::strin
     return curve;
 }
 
-} // namespace quant::data
+}   // namespace quant::data

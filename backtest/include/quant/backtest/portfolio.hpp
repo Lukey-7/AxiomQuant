@@ -39,9 +39,13 @@ public:
     [[nodiscard]] const Position& get_position(const std::string& ticker) const;
     [[nodiscard]] bool has_open_position(const std::string& ticker) const;
 
-    [[nodiscard]] const std::unordered_map<std::string, Position>& get_positions() const noexcept { return positions_; }
+    [[nodiscard]] const std::unordered_map<std::string, Position>& get_positions() const noexcept {
+        return positions_;
+    }
     [[nodiscard]] const std::vector<Fill>& get_trade_history() const noexcept { return trade_history_; }
-    [[nodiscard]] const std::vector<quant::data::EquityPointRecord>& get_equity_curve() const noexcept { return equity_curve_; }
+    [[nodiscard]] const std::vector<quant::data::EquityPointRecord>& get_equity_curve() const noexcept {
+        return equity_curve_;
+    }
 
     /**
      * @brief Calculates simple return series from equity curve.
@@ -61,4 +65,4 @@ private:
     static const Position empty_position_;
 };
 
-} // namespace quant::backtest
+}   // namespace quant::backtest

@@ -37,13 +37,13 @@ TEST_CASE(TestRisk_MaxDrawdown) {
     EXPECT_NEAR(dd_info.max_drawdown, 0.30, 1e-6);
     EXPECT_EQ(dd_info.peak_index, 2);
     EXPECT_EQ(dd_info.trough_index, 4);
-    EXPECT_EQ(dd_info.recovery_index, 6); // recovers back to 160 >= 150 at index 6
+    EXPECT_EQ(dd_info.recovery_index, 6);   // recovers back to 160 >= 150 at index 6
 }
 
 TEST_CASE(TestRisk_VaR_CVaR) {
     std::vector<double> rets(100);
     for (size_t i = 0; i < 100; ++i) {
-        rets[i] = -0.05 + static_cast<double>(i) * 0.001; // from -5% to +4.9%
+        rets[i] = -0.05 + static_cast<double>(i) * 0.001;   // from -5% to +4.9%
     }
 
     auto hist = quant::risk::ValueAtRisk::historical(rets, 0.95);
@@ -60,7 +60,8 @@ TEST_CASE(TestRisk_VaR_CVaR) {
 TEST_CASE(TestRisk_HistoricalVaR_ExactQuantile) {
     // Returns -5.0%, -4.9%, ... in 0.1% steps: the 5% worst observation is -4.5%.
     std::vector<double> rets(100);
-    for (size_t i = 0; i < 100; ++i) rets[i] = -0.05 + static_cast<double>(i) * 0.001;
+    for (size_t i = 0; i < 100; ++i)
+        rets[i] = -0.05 + static_cast<double>(i) * 0.001;
 
     const auto hist = quant::risk::ValueAtRisk::historical(rets, 0.95);
     EXPECT_NEAR(hist.var, 0.045, 1e-12);
@@ -75,7 +76,7 @@ TEST_CASE(TestRisk_CagrUsesCalendarDates) {
     result.initial_cash = 100000.0;
     result.final_equity = 144000.0;
     result.total_return = 0.44;
-    result.total_bars = 400;              // deliberately inconsistent with the calendar span
+    result.total_bars = 400;   // deliberately inconsistent with the calendar span
     result.start_timestamp = 1000000000;
     result.end_timestamp = result.start_timestamp + static_cast<int64_t>(2.0 * 365.25 * 86400.0);
 

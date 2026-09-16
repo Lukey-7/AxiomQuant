@@ -10,18 +10,18 @@ namespace quant::backtest::strategies {
 
 class SmaCrossoverStrategy : public Strategy {
 public:
-    SmaCrossoverStrategy(
-        std::string ticker,
-        size_t fast_period = 20,
-        size_t slow_period = 50,
-        double allocation_pct = 0.95
-    ) : ticker_(std::move(ticker)),
-        fast_period_(fast_period),
-        slow_period_(slow_period),
-        allocation_pct_(allocation_pct) {}
+    SmaCrossoverStrategy(std::string ticker,
+                         size_t fast_period = 20,
+                         size_t slow_period = 50,
+                         double allocation_pct = 0.95)
+        : ticker_(std::move(ticker)),
+          fast_period_(fast_period),
+          slow_period_(slow_period),
+          allocation_pct_(allocation_pct) {}
 
     [[nodiscard]] std::string get_name() const override {
-        return "SMA_Crossover(" + ticker_ + ", " + std::to_string(fast_period_) + "/" + std::to_string(slow_period_) + ")";
+        return "SMA_Crossover(" + ticker_ + ", " + std::to_string(fast_period_) + "/" +
+               std::to_string(slow_period_) + ")";
     }
 
     void on_start(Portfolio& /*portfolio*/, const quant::data::MarketDataUniverse& universe) override {
@@ -30,12 +30,10 @@ public:
         slow_sma_ = quant::indicators::SMA::calculate(closes, slow_period_);
     }
 
-    void on_bar(
-        size_t timeline_index,
-        const quant::data::MarketSnapshot& snapshot,
-        const Portfolio& portfolio,
-        std::vector<Order>& pending_orders
-    ) override {
+    void on_bar(size_t timeline_index,
+                const quant::data::MarketSnapshot& snapshot,
+                const Portfolio& portfolio,
+                std::vector<Order>& pending_orders) override {
         if (timeline_index == 0 || timeline_index >= fast_sma_.size()) return;
         if (!snapshot.has_ticker(ticker_)) return;
 
@@ -94,4 +92,4 @@ private:
     std::vector<double> slow_sma_;
 };
 
-} // namespace quant::backtest::strategies
+}   // namespace quant::backtest::strategies

@@ -47,17 +47,22 @@ jobs:
           clang-format -i "${files[@]}"
           git diff > clang-format.patch
           if [ -s clang-format.patch ]; then
-            echo "::warning::clang-format would change $(git diff --name-only | wc -l) files"
+            echo "::error::clang-format would change $(git diff --name-only | wc -l) files; the patch is in the static-analysis artifact"
             git diff --stat
+            git checkout -- .
+            exit 1
           fi
-          git checkout -- .
       - name: Static analysis
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \n            -DAXIOM_ENABLE_OPENMP=OFF
           mapfile -t files < <(git ls-files '*.cpp' | grep -v '^third_party/')
           clang-tidy -p build "${files[@]}" > clang-tidy.log 2>&1 || true
-          grep -c 'warning:' clang-tidy.log || true
-          tail -40 clang-tidy.log
+          # Findings in our own sources fail the job; Eigen and SQLite live under third_party.
+          if grep -E "^$PWD/(analysis|backtest|cli|data|indicators|optimization|risk|simulation|tests)/.*(warning|error):" clang-tidy.log; then
+            echo "::error::clang-tidy reported findings in project sources"
+            exit 1
+          fi
+          tail -5 clang-tidy.log
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
@@ -81,7 +86,7 @@ jobs:
       - name: Report
         run: |
           mkdir -p coverage
-          gcovr --root . --filter '(analysis|backtest|data|indicators|optimization|risk|simulation)/'             --exclude-unreachable-branches --print-summary             --html-details coverage/index.html --txt coverage/summary.txt --json-summary coverage/summary.json
+          gcovr --root . --filter '(analysis|backtest|data|indicators|optimization|risk|simulation)/'             --exclude-unreachable-branches --print-summary --fail-under-line 80             --html-details coverage/index.html --txt coverage/summary.txt --json-summary coverage/summary.json
           cat coverage/summary.txt
       - name: Upload coverage
         uses: actions/upload-artifact@v4

@@ -7,7 +7,10 @@ namespace quant::backtest {
 const Position Portfolio::empty_position_{""};
 
 Portfolio::Portfolio(double initial_cash)
-    : initial_cash_(initial_cash), cash_(initial_cash), current_equity_(initial_cash), peak_equity_(initial_cash) {}
+    : initial_cash_(initial_cash),
+      cash_(initial_cash),
+      current_equity_(initial_cash),
+      peak_equity_(initial_cash) {}
 
 void Portfolio::reset(double initial_cash) {
     initial_cash_ = initial_cash;
@@ -115,4 +118,4 @@ std::vector<double> Portfolio::get_daily_returns() const {
     return rets;
 }
 
-} // namespace quant::backtest
+}   // namespace quant::backtest

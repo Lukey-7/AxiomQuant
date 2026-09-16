@@ -18,9 +18,8 @@ std::string trim(const std::string& str) {
 }
 
 std::string to_lower(std::string str) {
-    std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    std::transform(str.begin(), str.end(), str.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return str;
 }
 
@@ -43,12 +42,12 @@ std::vector<std::string> split_csv_line(const std::string& line) {
     return tokens;
 }
 
-} // namespace
+}   // namespace
 
 int64_t CsvLoader::parse_date_to_timestamp(const std::string& date_str) {
     std::tm tm{};
     std::string s = trim(date_str);
-    
+
     // Support YYYY-MM-DD or YYYY/MM/DD
     if (s.size() >= 10) {
         try {
@@ -83,7 +82,8 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
     }
 
     auto headers = split_csv_line(header_line);
-    int date_idx = -1, open_idx = -1, high_idx = -1, low_idx = -1, close_idx = -1, adj_close_idx = -1, vol_idx = -1;
+    int date_idx = -1, open_idx = -1, high_idx = -1, low_idx = -1, close_idx = -1, adj_close_idx = -1,
+        vol_idx = -1;
 
     for (size_t i = 0; i < headers.size(); ++i) {
         std::string col = to_lower(headers[i]);
@@ -92,12 +92,14 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
         else if (col == "high") high_idx = static_cast<int>(i);
         else if (col == "low") low_idx = static_cast<int>(i);
         else if (col == "close") close_idx = static_cast<int>(i);
-        else if (col == "adj close" || col == "adjclose" || col == "adjusted_close") adj_close_idx = static_cast<int>(i);
+        else if (col == "adj close" || col == "adjclose" || col == "adjusted_close")
+            adj_close_idx = static_cast<int>(i);
         else if (col == "volume" || col == "vol") vol_idx = static_cast<int>(i);
     }
 
     if (date_idx == -1 || close_idx == -1) {
-        throw std::runtime_error("CSV must contain at least 'Date' and 'Close' columns: " + filepath.string());
+        throw std::runtime_error("CSV must contain at least 'Date' and 'Close' columns: " +
+                                 filepath.string());
     }
 
     std::vector<Bar> raw_bars;
@@ -105,7 +107,8 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') continue;
         auto tokens = split_csv_line(line);
-        if (tokens.size() <= static_cast<size_t>(std::max({date_idx, open_idx, high_idx, low_idx, close_idx}))) {
+        if (tokens.size() <=
+            static_cast<size_t>(std::max({date_idx, open_idx, high_idx, low_idx, close_idx}))) {
             continue;
         }
 
@@ -114,11 +117,21 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
             bar.date = tokens[date_idx];
             bar.timestamp = parse_date_to_timestamp(bar.date);
             bar.close = std::stod(tokens[close_idx]);
-            bar.open = (open_idx != -1 && open_idx < static_cast<int>(tokens.size())) ? std::stod(tokens[open_idx]) : bar.close;
-            bar.high = (high_idx != -1 && high_idx < static_cast<int>(tokens.size())) ? std::stod(tokens[high_idx]) : std::max(bar.open, bar.close);
-            bar.low = (low_idx != -1 && low_idx < static_cast<int>(tokens.size())) ? std::stod(tokens[low_idx]) : std::min(bar.open, bar.close);
-            bar.adj_close = (adj_close_idx != -1 && adj_close_idx < static_cast<int>(tokens.size())) ? std::stod(tokens[adj_close_idx]) : bar.close;
-            bar.volume = (vol_idx != -1 && vol_idx < static_cast<int>(tokens.size())) ? std::stod(tokens[vol_idx]) : 0.0;
+            bar.open = (open_idx != -1 && open_idx < static_cast<int>(tokens.size()))
+                           ? std::stod(tokens[open_idx])
+                           : bar.close;
+            bar.high = (high_idx != -1 && high_idx < static_cast<int>(tokens.size()))
+                           ? std::stod(tokens[high_idx])
+                           : std::max(bar.open, bar.close);
+            bar.low = (low_idx != -1 && low_idx < static_cast<int>(tokens.size()))
+                          ? std::stod(tokens[low_idx])
+                          : std::min(bar.open, bar.close);
+            bar.adj_close = (adj_close_idx != -1 && adj_close_idx < static_cast<int>(tokens.size()))
+                                ? std::stod(tokens[adj_close_idx])
+                                : bar.close;
+            bar.volume = (vol_idx != -1 && vol_idx < static_cast<int>(tokens.size()))
+                             ? std::stod(tokens[vol_idx])
+                             : 0.0;
 
             if (bar.is_valid()) {
                 raw_bars.push_back(bar);
@@ -130,9 +143,8 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
     }
 
     // Ensure chronological order
-    std::sort(raw_bars.begin(), raw_bars.end(), [](const Bar& a, const Bar& b) {
-        return a.timestamp < b.timestamp;
-    });
+    std::sort(raw_bars.begin(), raw_bars.end(),
+              [](const Bar& a, const Bar& b) { return a.timestamp < b.timestamp; });
 
     TimeSeries ts(ticker);
     ts.reserve(raw_bars.size());
@@ -143,7 +155,8 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
     return ts;
 }
 
-std::unordered_map<std::string, TimeSeries> CsvLoader::load_directory(const std::filesystem::path& directory_path) {
+std::unordered_map<std::string, TimeSeries> CsvLoader::load_directory(
+    const std::filesystem::path& directory_path) {
     if (!std::filesystem::exists(directory_path) || !std::filesystem::is_directory(directory_path)) {
         throw std::runtime_error("Directory does not exist: " + directory_path.string());
     }
@@ -159,4 +172,4 @@ std::unordered_map<std::string, TimeSeries> CsvLoader::load_directory(const std:
     return dataset;
 }
 
-} // namespace quant::data
+}   // namespace quant::data

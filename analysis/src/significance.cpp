@@ -17,11 +17,14 @@ constexpr double kEulerGamma = 0.5772156649015329;
 
 // Annualised Sharpe of the resampled series r[idx[0]], r[idx[1]], ...; same convention as
 // RiskMetrics::sharpe_ratio (sample standard deviation, 0 when volatility vanishes).
-double resampled_sharpe(const std::vector<double>& r, const std::vector<size_t>& idx,
-                        double daily_rf, double ann_factor) {
+double resampled_sharpe(const std::vector<double>& r,
+                        const std::vector<size_t>& idx,
+                        double daily_rf,
+                        double ann_factor) {
     const double n = static_cast<double>(idx.size());
     double sum = 0.0;
-    for (size_t i : idx) sum += r[i];
+    for (size_t i : idx)
+        sum += r[i];
     const double mean = sum / n;
     double ss = 0.0;
     for (size_t i : idx) {
@@ -59,18 +62,16 @@ SharpeInterval summarise(std::vector<double> draws, double estimate, double conf
     return out;
 }
 
-} // namespace
+}   // namespace
 
 double normal_cdf(double x) {
     return 0.5 * std::erfc(-x / std::numbers::sqrt2);
 }
 
-double probabilistic_sharpe_ratio(
-    const std::vector<double>& returns,
-    double benchmark_sharpe,
-    double risk_free_rate,
-    double ann_factor
-) {
+double probabilistic_sharpe_ratio(const std::vector<double>& returns,
+                                  double benchmark_sharpe,
+                                  double risk_free_rate,
+                                  double ann_factor) {
     if (returns.size() < 3) return 0.5;
     const double sqrt_ann = std::sqrt(ann_factor);
     const double sr = risk::RiskMetrics::sharpe_ratio(returns, risk_free_rate, ann_factor) / sqrt_ann;
@@ -80,7 +81,8 @@ double probabilistic_sharpe_ratio(
 
     const double variance_term = 1.0 - g3 * sr + (g4 - 1.0) / 4.0 * sr * sr;
     if (!(variance_term > 0.0)) return sr > sr_star ? 1.0 : 0.0;
-    const double z = (sr - sr_star) * std::sqrt(static_cast<double>(returns.size()) - 1.0) / std::sqrt(variance_term);
+    const double z =
+        (sr - sr_star) * std::sqrt(static_cast<double>(returns.size()) - 1.0) / std::sqrt(variance_term);
     return normal_cdf(z);
 }
 
@@ -92,28 +94,26 @@ double expected_maximum_sharpe(size_t trials, double trial_sharpe_std) {
     return trial_sharpe_std * ((1.0 - kEulerGamma) * z1 + kEulerGamma * z2);
 }
 
-DeflatedSharpe deflated_sharpe_ratio(
-    const std::vector<double>& selected_returns,
-    const std::vector<double>& trial_sharpes,
-    double risk_free_rate,
-    double ann_factor
-) {
+DeflatedSharpe deflated_sharpe_ratio(const std::vector<double>& selected_returns,
+                                     const std::vector<double>& trial_sharpes,
+                                     double risk_free_rate,
+                                     double ann_factor) {
     DeflatedSharpe out;
     out.observations = selected_returns.size();
     out.trials = trial_sharpes.size();
     out.sharpe = risk::RiskMetrics::sharpe_ratio(selected_returns, risk_free_rate, ann_factor);
-    out.trial_sharpe_std = trial_sharpes.size() > 1 ? risk::RiskMetrics::standard_deviation(trial_sharpes) : 0.0;
+    out.trial_sharpe_std =
+        trial_sharpes.size() > 1 ? risk::RiskMetrics::standard_deviation(trial_sharpes) : 0.0;
     out.expected_max_sharpe = expected_maximum_sharpe(out.trials, out.trial_sharpe_std);
     out.probabilistic_sharpe = probabilistic_sharpe_ratio(selected_returns, 0.0, risk_free_rate, ann_factor);
-    out.deflated_sharpe = probabilistic_sharpe_ratio(selected_returns, out.expected_max_sharpe, risk_free_rate, ann_factor);
+    out.deflated_sharpe =
+        probabilistic_sharpe_ratio(selected_returns, out.expected_max_sharpe, risk_free_rate, ann_factor);
     return out;
 }
 
-BootstrapSharpeResult bootstrap_sharpe(
-    const std::vector<double>& strategy,
-    const std::vector<double>& benchmark,
-    const BootstrapConfig& config
-) {
+BootstrapSharpeResult bootstrap_sharpe(const std::vector<double>& strategy,
+                                       const std::vector<double>& benchmark,
+                                       const BootstrapConfig& config) {
     const size_t n = strategy.size();
     if (n < 3) throw std::invalid_argument("bootstrap_sharpe: need at least three returns");
     if (!benchmark.empty() && benchmark.size() != n) {
@@ -129,24 +129,25 @@ BootstrapSharpeResult bootstrap_sharpe(
     out.resamples = config.resamples;
     out.confidence = config.confidence;
     out.has_benchmark = !benchmark.empty();
-    out.mean_block_length = config.mean_block_length > 0.0
-        ? config.mean_block_length
-        : std::cbrt(static_cast<double>(n));
+    out.mean_block_length =
+        config.mean_block_length > 0.0 ? config.mean_block_length : std::cbrt(static_cast<double>(n));
     out.mean_block_length = std::clamp(out.mean_block_length, 1.0, static_cast<double>(n));
 
     const double daily_rf = config.risk_free_rate / config.ann_factor;
     const double restart_probability = 1.0 / out.mean_block_length;
-    const double strategy_sharpe = risk::RiskMetrics::sharpe_ratio(strategy, config.risk_free_rate, config.ann_factor);
-    const double benchmark_sharpe = out.has_benchmark
-        ? risk::RiskMetrics::sharpe_ratio(benchmark, config.risk_free_rate, config.ann_factor)
-        : 0.0;
+    const double strategy_sharpe =
+        risk::RiskMetrics::sharpe_ratio(strategy, config.risk_free_rate, config.ann_factor);
+    const double benchmark_sharpe =
+        out.has_benchmark
+            ? risk::RiskMetrics::sharpe_ratio(benchmark, config.risk_free_rate, config.ann_factor)
+            : 0.0;
 
     std::vector<double> strategy_draws(config.resamples);
     std::vector<double> benchmark_draws(out.has_benchmark ? config.resamples : 0);
 
     // Each resample owns its generator and index buffer, so iterations share no mutable state.
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
     for (int64_t b = 0; b < static_cast<int64_t>(config.resamples); ++b) {
         simulation::PathRng rng(config.seed, static_cast<uint64_t>(b));
@@ -175,7 +176,8 @@ BootstrapSharpeResult bootstrap_sharpe(
         out.difference = summarise(std::move(difference_draws), strategy_sharpe - benchmark_sharpe,
                                    config.confidence, true);
     }
-    out.probabilistic_sharpe = probabilistic_sharpe_ratio(strategy, 0.0, config.risk_free_rate, config.ann_factor);
+    out.probabilistic_sharpe =
+        probabilistic_sharpe_ratio(strategy, 0.0, config.risk_free_rate, config.ann_factor);
     return out;
 }
 
@@ -189,9 +191,9 @@ std::string format_bootstrap_report(const BootstrapSharpeResult& r) {
     ss << std::setprecision(3);
     ss << "                        Sharpe      " << level << "% interval        p-value\n";
     const auto row = [&ss](const char* label, const SharpeInterval& s, const char* hypothesis) {
-        ss << "  " << std::left << std::setw(20) << label << std::right
-           << std::setw(8) << s.estimate << "   [" << std::setw(7) << s.lower << ", " << std::setw(7) << s.upper << "]"
-           << std::setw(10) << s.p_value << "  " << hypothesis << "\n";
+        ss << "  " << std::left << std::setw(20) << label << std::right << std::setw(8) << s.estimate
+           << "   [" << std::setw(7) << s.lower << ", " << std::setw(7) << s.upper << "]" << std::setw(10)
+           << s.p_value << "  " << hypothesis << "\n";
     };
     row("SMA (walk-forward)", r.strategy, "(H0: Sharpe <= 0)");
     if (r.has_benchmark) {
@@ -214,4 +216,4 @@ std::string format_deflated_sharpe_report(const DeflatedSharpe& r) {
     return ss.str();
 }
 
-} // namespace quant::analysis
+}   // namespace quant::analysis

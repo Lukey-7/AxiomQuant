@@ -61,12 +61,14 @@ public:
         }
 
         std::cout << "-------------------------------------------------------------------------\n";
-        std::cout << "Summary: " << passed << " Passed, " << failed << " Failed, Total: " << tests_.size() << "\n";
+        std::cout << "Summary: " << passed << " Passed, " << failed << " Failed, Total: " << tests_.size()
+                  << "\n";
 
         if (!failures.empty()) {
             std::cout << "\nFailures:\n";
             for (const auto& f : failures) {
-                std::cout << "  - " << f.test_name << " (" << f.file << ":" << f.line << "): " << f.message << "\n";
+                std::cout << "  - " << f.test_name << " (" << f.file << ":" << f.line << "): " << f.message
+                          << "\n";
             }
         }
         std::cout << "=========================================================================\n\n";
@@ -95,50 +97,54 @@ struct TestRegistrar {
     }
 };
 
-} // namespace quant::tests
+}   // namespace quant::tests
 
-#define TEST_CASE(name) \
-    static void test_func_##name(); \
+#define TEST_CASE(name)                                                             \
+    static void test_func_##name();                                                 \
     static ::quant::tests::TestRegistrar registrar_##name(#name, test_func_##name); \
     static void test_func_##name()
 
-#define EXPECT_TRUE(cond) \
-    do { \
-        if (!(cond)) { \
-            ::quant::tests::TestRegistry::instance().record_failure(__FILE__, __LINE__, "Condition failed: " #cond); \
-        } \
+#define EXPECT_TRUE(cond)                                                                        \
+    do {                                                                                         \
+        if (!(cond)) {                                                                           \
+            ::quant::tests::TestRegistry::instance().record_failure(__FILE__, __LINE__,          \
+                                                                    "Condition failed: " #cond); \
+        }                                                                                        \
     } while (false)
 
 #define EXPECT_FALSE(cond) EXPECT_TRUE(!(cond))
 
-#define EXPECT_EQ(a, b) \
-    do { \
-        if ((a) != (b)) { \
-            std::ostringstream ss; \
-            ss << "Expected " #a " == " #b " (" << (a) << " vs " << (b) << ")"; \
+#define EXPECT_EQ(a, b)                                                                            \
+    do {                                                                                           \
+        if ((a) != (b)) {                                                                          \
+            std::ostringstream ss;                                                                 \
+            ss << "Expected " #a " == " #b " (" << (a) << " vs " << (b) << ")";                    \
             ::quant::tests::TestRegistry::instance().record_failure(__FILE__, __LINE__, ss.str()); \
-        } \
+        }                                                                                          \
     } while (false)
 
-#define EXPECT_NEAR(a, b, tol) \
-    do { \
-        double diff = std::abs(static_cast<double>(a) - static_cast<double>(b)); \
-        if (diff > (tol)) { \
-            std::ostringstream ss; \
-            ss << "Expected " #a " near " #b " (diff=" << diff << " > tol=" << (tol) << ", a=" << (a) << ", b=" << (b) << ")"; \
-            ::quant::tests::TestRegistry::instance().record_failure(__FILE__, __LINE__, ss.str()); \
-        } \
+#define EXPECT_NEAR(a, b, tol)                                                                        \
+    do {                                                                                              \
+        double diff = std::abs(static_cast<double>(a) - static_cast<double>(b));                      \
+        if (diff > (tol)) {                                                                           \
+            std::ostringstream ss;                                                                    \
+            ss << "Expected " #a " near " #b " (diff=" << diff << " > tol=" << (tol) << ", a=" << (a) \
+               << ", b=" << (b) << ")";                                                               \
+            ::quant::tests::TestRegistry::instance().record_failure(__FILE__, __LINE__, ss.str());    \
+        }                                                                                             \
     } while (false)
 
-#define EXPECT_THROW(stmt, ExceptionType) \
-    do { \
-        bool caught = false; \
-        try { \
-            stmt; \
-        } catch (const ExceptionType&) { \
-            caught = true; \
-        } catch (...) {} \
-        if (!caught) { \
-            ::quant::tests::TestRegistry::instance().record_failure(__FILE__, __LINE__, "Expected exception " #ExceptionType " for " #stmt); \
-        } \
+#define EXPECT_THROW(stmt, ExceptionType)                                                \
+    do {                                                                                 \
+        bool caught = false;                                                             \
+        try {                                                                            \
+            stmt;                                                                        \
+        } catch (const ExceptionType&) {                                                 \
+            caught = true;                                                               \
+        } catch (...) {                                                                  \
+        }                                                                                \
+        if (!caught) {                                                                   \
+            ::quant::tests::TestRegistry::instance().record_failure(                     \
+                __FILE__, __LINE__, "Expected exception " #ExceptionType " for " #stmt); \
+        }                                                                                \
     } while (false)

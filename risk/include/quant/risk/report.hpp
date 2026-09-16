@@ -12,18 +12,14 @@ public:
     /**
      * @brief Evaluates complete performance summary from backtest result.
      */
-    [[nodiscard]] static PerformanceSummary evaluate(
-        const backtest::BacktestResult& result,
-        double risk_free_rate = 0.02
-    );
+    [[nodiscard]] static PerformanceSummary evaluate(const backtest::BacktestResult& result,
+                                                     double risk_free_rate = 0.02);
 
     /**
      * @brief Generates formatted text report with tables and risk indicators.
      */
-    [[nodiscard]] static std::string generate_text_report(
-        const backtest::BacktestResult& result,
-        const PerformanceSummary& summary
-    );
+    [[nodiscard]] static std::string generate_text_report(const backtest::BacktestResult& result,
+                                                          const PerformanceSummary& summary);
 
     /**
      * @brief Generates an ASCII line chart of the portfolio equity curve.
@@ -31,11 +27,9 @@ public:
      * @param width Character width of the chart.
      * @param height Line height of the chart.
      */
-    [[nodiscard]] static std::string render_ascii_chart(
-        const std::vector<double>& equity_points,
-        size_t width = 60,
-        size_t height = 15
-    );
+    [[nodiscard]] static std::string render_ascii_chart(const std::vector<double>& equity_points,
+                                                        size_t width = 60,
+                                                        size_t height = 15);
 };
 
-} // namespace quant::risk
+}   // namespace quant::risk

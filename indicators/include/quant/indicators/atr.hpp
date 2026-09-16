@@ -19,12 +19,10 @@ public:
      * @param period Smoothing lookback period (default 14).
      * @return Vector of ATR values with initial period - 1 as NaN.
      */
-    [[nodiscard]] static std::vector<double> calculate(
-        const std::vector<double>& high,
-        const std::vector<double>& low,
-        const std::vector<double>& close,
-        size_t period = 14
-    ) {
+    [[nodiscard]] static std::vector<double> calculate(const std::vector<double>& high,
+                                                       const std::vector<double>& low,
+                                                       const std::vector<double>& close,
+                                                       size_t period = 14) {
         if (period == 0) {
             throw std::invalid_argument("ATR period must be >= 1");
         }
@@ -66,4 +64,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

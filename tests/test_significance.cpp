@@ -14,12 +14,13 @@ std::vector<double> reference_series(size_t n) {
     std::vector<double> r(n);
     for (size_t i = 0; i < n; ++i) {
         const double t = static_cast<double>(i);
-        r[i] = 0.0004 + 0.01 * std::sin(0.7 * t) + 0.006 * std::sin(0.013 * t * t) + 0.003 * std::cos(1.9 * t);
+        r[i] =
+            0.0004 + 0.01 * std::sin(0.7 * t) + 0.006 * std::sin(0.013 * t * t) + 0.003 * std::cos(1.9 * t);
     }
     return r;
 }
 
-} // namespace
+}   // namespace
 
 TEST_CASE(TestSignificance_NormalCdf_KnownValues) {
     EXPECT_NEAR(quant::analysis::normal_cdf(0.0), 0.5, 1e-15);
@@ -119,7 +120,8 @@ TEST_CASE(TestSignificance_Bootstrap_RejectsBadInput) {
     const auto r = reference_series(50);
     quant::analysis::BootstrapConfig cfg;
     EXPECT_THROW((void)quant::analysis::bootstrap_sharpe({0.01, 0.02}, {}, cfg), std::invalid_argument);
-    EXPECT_THROW((void)quant::analysis::bootstrap_sharpe(r, reference_series(49), cfg), std::invalid_argument);
+    EXPECT_THROW((void)quant::analysis::bootstrap_sharpe(r, reference_series(49), cfg),
+                 std::invalid_argument);
     cfg.confidence = 1.0;
     EXPECT_THROW((void)quant::analysis::bootstrap_sharpe(r, {}, cfg), std::invalid_argument);
 }

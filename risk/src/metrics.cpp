@@ -39,11 +39,9 @@ double RiskMetrics::annualized_volatility(const std::vector<double>& daily_retur
     return standard_deviation(daily_returns) * std::sqrt(ann_factor);
 }
 
-double RiskMetrics::sharpe_ratio(
-    const std::vector<double>& daily_returns,
-    double risk_free_rate,
-    double ann_factor
-) {
+double RiskMetrics::sharpe_ratio(const std::vector<double>& daily_returns,
+                                 double risk_free_rate,
+                                 double ann_factor) {
     if (daily_returns.size() < 2) return 0.0;
     double daily_mean = mean(daily_returns);
     double ann_return = daily_mean * ann_factor;
@@ -52,11 +50,7 @@ double RiskMetrics::sharpe_ratio(
     return (ann_return - risk_free_rate) / ann_vol;
 }
 
-double RiskMetrics::sortino_ratio(
-    const std::vector<double>& daily_returns,
-    double mar,
-    double ann_factor
-) {
+double RiskMetrics::sortino_ratio(const std::vector<double>& daily_returns, double mar, double ann_factor) {
     if (daily_returns.size() < 2) return 0.0;
     double daily_mar = mar / ann_factor;
     double daily_mean = mean(daily_returns);
@@ -165,4 +159,4 @@ double RiskMetrics::excess_kurtosis(const std::vector<double>& returns) {
     return term1 - term2;
 }
 
-} // namespace quant::risk
+}   // namespace quant::risk

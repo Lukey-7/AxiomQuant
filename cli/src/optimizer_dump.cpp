@@ -28,7 +28,8 @@ namespace {
 
 void print(const std::string& name, const Eigen::VectorXd& w) {
     std::printf("%s", name.c_str());
-    for (Eigen::Index i = 0; i < w.size(); ++i) std::printf(" %.17g", w(i));
+    for (Eigen::Index i = 0; i < w.size(); ++i)
+        std::printf(" %.17g", w(i));
     std::printf("\n");
 }
 
@@ -46,11 +47,12 @@ size_t read_count(std::istream& in) {
 
 Eigen::VectorXd read_vector(std::istream& in, size_t n) {
     Eigen::VectorXd v(static_cast<Eigen::Index>(n));
-    for (Eigen::Index i = 0; i < v.size(); ++i) v(i) = read_double(in);
+    for (Eigen::Index i = 0; i < v.size(); ++i)
+        v(i) = read_double(in);
     return v;
 }
 
-} // namespace
+}   // namespace
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -64,18 +66,23 @@ int main(int argc, char* argv[]) {
         const size_t n = read_count(in);
         const Eigen::VectorXd mu = read_vector(in, n);
         Eigen::MatrixXd sigma(static_cast<Eigen::Index>(n), static_cast<Eigen::Index>(n));
-        for (Eigen::Index r = 0; r < sigma.rows(); ++r) sigma.row(r) = read_vector(in, n).transpose();
+        for (Eigen::Index r = 0; r < sigma.rows(); ++r)
+            sigma.row(r) = read_vector(in, n).transpose();
         const double rf = read_double(in);
         const double min_w = read_double(in);
         const double max_w = read_double(in);
 
         std::vector<double> gammas(read_count(in));
-        for (double& g : gammas) g = read_double(in);
+        for (double& g : gammas)
+            g = read_double(in);
         std::vector<double> targets(read_count(in));
-        for (double& t : targets) t = read_double(in);
+        for (double& t : targets)
+            t = read_double(in);
 
-        print("gmv_unconstrained", opt::UnconstrainedMarkowitz::global_minimum_variance(mu, sigma, rf).weights);
-        print("tangency_unconstrained", opt::UnconstrainedMarkowitz::maximum_sharpe_portfolio(mu, sigma, rf).weights);
+        print("gmv_unconstrained",
+              opt::UnconstrainedMarkowitz::global_minimum_variance(mu, sigma, rf).weights);
+        print("tangency_unconstrained",
+              opt::UnconstrainedMarkowitz::maximum_sharpe_portfolio(mu, sigma, rf).weights);
         for (size_t k = 0; k < targets.size(); ++k) {
             print("target_return_" + std::to_string(k),
                   opt::UnconstrainedMarkowitz::target_return_portfolio(mu, sigma, targets[k], rf).weights);
@@ -89,14 +96,16 @@ int main(int argc, char* argv[]) {
         const opt::ConstrainedQpOptimizer qp(cfg);
         print("gmv_constrained", qp.global_minimum_variance(mu, sigma).weights);
         for (size_t k = 0; k < gammas.size(); ++k) {
-            print("risk_aversion_" + std::to_string(k), qp.optimize_risk_aversion(mu, sigma, gammas[k]).weights);
+            print("risk_aversion_" + std::to_string(k),
+                  qp.optimize_risk_aversion(mu, sigma, gammas[k]).weights);
         }
         print("max_sharpe_constrained", qp.maximum_sharpe_portfolio(mu, sigma).weights);
 
         const size_t projections = read_count(in);
         for (size_t k = 0; k < projections; ++k) {
             const Eigen::VectorXd v = read_vector(in, n);
-            print("projection_" + std::to_string(k), opt::ConstrainedQpOptimizer::project_onto_bounded_simplex(v, min_w, max_w));
+            print("projection_" + std::to_string(k),
+                  opt::ConstrainedQpOptimizer::project_onto_bounded_simplex(v, min_w, max_w));
         }
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << "\n";

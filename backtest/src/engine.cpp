@@ -4,23 +4,20 @@
 
 namespace quant::backtest {
 
-BacktestEngine::BacktestEngine(
-    quant::data::MarketDataUniverse universe,
-    Portfolio portfolio,
-    ExecutionModel execution_model,
-    EngineConfig config
-) : universe_(std::move(universe)),
-    portfolio_(std::move(portfolio)),
-    execution_model_(execution_model),
-    config_(config) {}
+BacktestEngine::BacktestEngine(quant::data::MarketDataUniverse universe,
+                               Portfolio portfolio,
+                               ExecutionModel execution_model,
+                               EngineConfig config)
+    : universe_(std::move(universe)),
+      portfolio_(std::move(portfolio)),
+      execution_model_(execution_model),
+      config_(config) {}
 
-void BacktestEngine::execute_orders(
-    std::vector<Order>& orders,
-    const quant::data::MarketSnapshot& snapshot,
-    bool fill_at_open,
-    Strategy& strategy,
-    BacktestResult& result
-) {
+void BacktestEngine::execute_orders(std::vector<Order>& orders,
+                                    const quant::data::MarketSnapshot& snapshot,
+                                    bool fill_at_open,
+                                    Strategy& strategy,
+                                    BacktestResult& result) {
     // Liquidity first: sells release cash that subsequent buys in the same batch can use.
     std::stable_sort(orders.begin(), orders.end(), [](const Order& a, const Order& b) {
         return a.side == OrderSide::SELL && b.side == OrderSide::BUY;
@@ -91,8 +88,8 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
     const size_t total_steps = universe_.size();
     const bool next_bar = (config_.fill_timing == FillTiming::NextBarOpen);
 
-    std::vector<Order> queued;      // Orders waiting for the next bar's open
-    std::vector<Order> new_orders;  // Orders emitted on the current bar
+    std::vector<Order> queued;       // Orders waiting for the next bar's open
+    std::vector<Order> new_orders;   // Orders emitted on the current bar
 
     for (size_t t = 0; t < total_steps; ++t) {
         const auto& snapshot = universe_.get_snapshot(t);
@@ -107,7 +104,7 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
         new_orders.clear();
         strategy.on_bar(t, snapshot, portfolio_, new_orders);
         if (t < config_.trading_start_index) {
-            new_orders.clear(); // warm-up: the strategy observes data but may not trade yet
+            new_orders.clear();   // warm-up: the strategy observes data but may not trade yet
         }
 
         if (next_bar) {
@@ -131,7 +128,8 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
     }
     res.initial_cash = portfolio_.get_initial_cash();
     res.final_equity = portfolio_.get_total_equity();
-    res.total_return = (res.initial_cash > 0.0) ? ((res.final_equity - res.initial_cash) / res.initial_cash) : 0.0;
+    res.total_return =
+        (res.initial_cash > 0.0) ? ((res.final_equity - res.initial_cash) / res.initial_cash) : 0.0;
     res.total_bars = total_steps;
     res.total_trades = portfolio_.get_trade_history().size();
     res.unfilled_orders = queued.size();
@@ -142,4 +140,4 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
     return res;
 }
 
-} // namespace quant::backtest
+}   // namespace quant::backtest

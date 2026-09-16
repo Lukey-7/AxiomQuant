@@ -16,7 +16,8 @@ public:
      * @param period RSI lookback period (standard is 14).
      * @return Vector of RSI values [0.0, 100.0] with warmup period filled with NaN.
      */
-    [[nodiscard]] static std::vector<double> calculate(const std::vector<double>& prices, size_t period = 14) {
+    [[nodiscard]] static std::vector<double> calculate(const std::vector<double>& prices,
+                                                       size_t period = 14) {
         if (period == 0) {
             throw std::invalid_argument("RSI period must be >= 1");
         }
@@ -72,4 +73,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

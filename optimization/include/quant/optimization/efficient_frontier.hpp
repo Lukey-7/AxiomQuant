@@ -23,8 +23,7 @@ public:
         const Eigen::VectorXd& expected_returns,
         const Eigen::MatrixXd& cov_matrix,
         size_t num_points = 50,
-        double risk_free_rate = 0.02
-    );
+        double risk_free_rate = 0.02);
 
     /**
      * @brief Computes constrained (long-only / box constrained) efficient frontier curve points.
@@ -33,19 +32,16 @@ public:
         const Eigen::VectorXd& expected_returns,
         const Eigen::MatrixXd& cov_matrix,
         const ConstrainedQpConfig& config = ConstrainedQpConfig{},
-        size_t num_points = 50
-    );
+        size_t num_points = 50);
 
     /**
      * @brief Renders an ASCII scatter/curve plot of the Efficient Frontier.
      */
-    [[nodiscard]] static std::string render_ascii_frontier(
-        const std::vector<FrontierPoint>& frontier,
-        const FrontierPoint& gmv_point,
-        const FrontierPoint& tangency_point,
-        size_t width = 60,
-        size_t height = 15
-    );
+    [[nodiscard]] static std::string render_ascii_frontier(const std::vector<FrontierPoint>& frontier,
+                                                           const FrontierPoint& gmv_point,
+                                                           const FrontierPoint& tangency_point,
+                                                           size_t width = 60,
+                                                           size_t height = 15);
 
     /**
      * @brief Generates comprehensive text report comparing portfolios and weights.
@@ -56,8 +52,7 @@ public:
         const OptimizationResult& tangency_unconstrained,
         const OptimizationResult& gmv_constrained,
         const OptimizationResult& tangency_constrained,
-        const OptimizationResult& risk_parity
-    );
+        const OptimizationResult& risk_parity);
 };
 
-} // namespace quant::optimization
+}   // namespace quant::optimization

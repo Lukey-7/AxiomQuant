@@ -22,7 +22,8 @@ public:
      * @param directory_path Path to directory containing CSV files.
      * @return Map of ticker symbol to TimeSeries.
      */
-    static std::unordered_map<std::string, TimeSeries> load_directory(const std::filesystem::path& directory_path);
+    static std::unordered_map<std::string, TimeSeries> load_directory(
+        const std::filesystem::path& directory_path);
 
     /**
      * @brief Parses an ISO-8601 date string (YYYY-MM-DD) to Unix epoch seconds.
@@ -30,4 +31,4 @@ public:
     static int64_t parse_date_to_timestamp(const std::string& date_str);
 };
 
-} // namespace quant::data
+}   // namespace quant::data

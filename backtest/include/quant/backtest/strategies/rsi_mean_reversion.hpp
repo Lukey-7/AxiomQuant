@@ -10,17 +10,16 @@ namespace quant::backtest::strategies {
 
 class RsiMeanReversionStrategy : public Strategy {
 public:
-    RsiMeanReversionStrategy(
-        std::string ticker,
-        size_t period = 14,
-        double oversold = 30.0,
-        double overbought = 70.0,
-        double allocation_pct = 0.95
-    ) : ticker_(std::move(ticker)),
-        period_(period),
-        oversold_(oversold),
-        overbought_(overbought),
-        allocation_pct_(allocation_pct) {}
+    RsiMeanReversionStrategy(std::string ticker,
+                             size_t period = 14,
+                             double oversold = 30.0,
+                             double overbought = 70.0,
+                             double allocation_pct = 0.95)
+        : ticker_(std::move(ticker)),
+          period_(period),
+          oversold_(oversold),
+          overbought_(overbought),
+          allocation_pct_(allocation_pct) {}
 
     [[nodiscard]] std::string get_name() const override {
         return "RSI_MeanReversion(" + ticker_ + ", " + std::to_string(period_) + ")";
@@ -30,12 +29,10 @@ public:
         rsi_ = quant::indicators::RSI::calculate(universe.get_aligned_closes(ticker_), period_);
     }
 
-    void on_bar(
-        size_t timeline_index,
-        const quant::data::MarketSnapshot& snapshot,
-        const Portfolio& portfolio,
-        std::vector<Order>& pending_orders
-    ) override {
+    void on_bar(size_t timeline_index,
+                const quant::data::MarketSnapshot& snapshot,
+                const Portfolio& portfolio,
+                std::vector<Order>& pending_orders) override {
         if (!snapshot.has_ticker(ticker_) || timeline_index >= rsi_.size()) return;
 
         double curr_rsi = rsi_[timeline_index];
@@ -80,4 +77,4 @@ private:
     std::vector<double> rsi_;
 };
 
-} // namespace quant::backtest::strategies
+}   // namespace quant::backtest::strategies

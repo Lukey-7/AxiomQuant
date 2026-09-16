@@ -38,7 +38,7 @@ struct TradeRecord {
     std::string ticker;
     std::string date;
     int64_t timestamp{0};
-    std::string side; // "BUY" or "SELL"
+    std::string side;   // "BUY" or "SELL"
     double quantity{0.0};
     double price{0.0};
     double commission{0.0};
@@ -129,4 +129,4 @@ private:
     void execute_sql(const std::string& sql);
 };
 
-} // namespace quant::data
+}   // namespace quant::data

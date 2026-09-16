@@ -27,12 +27,10 @@ namespace quant::analysis {
  * @param risk_free_rate   Annualised risk-free rate, as in RiskMetrics::sharpe_ratio.
  * @return A probability in [0, 1]; 0.5 when there are fewer than three observations.
  */
-[[nodiscard]] double probabilistic_sharpe_ratio(
-    const std::vector<double>& returns,
-    double benchmark_sharpe,
-    double risk_free_rate,
-    double ann_factor = 252.0
-);
+[[nodiscard]] double probabilistic_sharpe_ratio(const std::vector<double>& returns,
+                                                double benchmark_sharpe,
+                                                double risk_free_rate,
+                                                double ann_factor = 252.0);
 
 /**
  * @brief Expected maximum of `trials` independent Sharpe estimates whose true value is zero.
@@ -66,12 +64,10 @@ struct DeflatedSharpe {
  * @param selected_returns Daily returns of the configuration that was picked.
  * @param trial_sharpes    Annualised Sharpe ratio of every configuration tried, including the winner.
  */
-[[nodiscard]] DeflatedSharpe deflated_sharpe_ratio(
-    const std::vector<double>& selected_returns,
-    const std::vector<double>& trial_sharpes,
-    double risk_free_rate,
-    double ann_factor = 252.0
-);
+[[nodiscard]] DeflatedSharpe deflated_sharpe_ratio(const std::vector<double>& selected_returns,
+                                                   const std::vector<double>& trial_sharpes,
+                                                   double risk_free_rate,
+                                                   double ann_factor = 252.0);
 
 struct BootstrapConfig {
     size_t resamples{10000};
@@ -86,7 +82,7 @@ struct SharpeInterval {
     double estimate{0.0};   // annualised Sharpe on the original sample
     double lower{0.0};      // percentile bootstrap interval
     double upper{0.0};
-    double p_value{1.0};    // see bootstrap_sharpe for the hypothesis
+    double p_value{1.0};   // see bootstrap_sharpe for the hypothesis
 };
 
 struct BootstrapSharpeResult {
@@ -95,9 +91,9 @@ struct BootstrapSharpeResult {
     double mean_block_length{0.0};
     double confidence{0.0};
     bool has_benchmark{false};
-    SharpeInterval strategy;     // H0: Sharpe <= 0 (one-sided)
-    SharpeInterval benchmark;    // H0: Sharpe <= 0 (one-sided)
-    SharpeInterval difference;   // strategy minus benchmark; H0: difference = 0 (two-sided)
+    SharpeInterval strategy;            // H0: Sharpe <= 0 (one-sided)
+    SharpeInterval benchmark;           // H0: Sharpe <= 0 (one-sided)
+    SharpeInterval difference;          // strategy minus benchmark; H0: difference = 0 (two-sided)
     double probabilistic_sharpe{0.5};   // PSR of the strategy against zero
 };
 
@@ -118,14 +114,12 @@ struct BootstrapSharpeResult {
  *
  * @param benchmark Same length as `strategy`, or empty to skip the comparison.
  */
-[[nodiscard]] BootstrapSharpeResult bootstrap_sharpe(
-    const std::vector<double>& strategy,
-    const std::vector<double>& benchmark,
-    const BootstrapConfig& config = BootstrapConfig{}
-);
+[[nodiscard]] BootstrapSharpeResult bootstrap_sharpe(const std::vector<double>& strategy,
+                                                     const std::vector<double>& benchmark,
+                                                     const BootstrapConfig& config = BootstrapConfig{});
 
 [[nodiscard]] std::string format_bootstrap_report(const BootstrapSharpeResult& result);
 
 [[nodiscard]] std::string format_deflated_sharpe_report(const DeflatedSharpe& result);
 
-} // namespace quant::analysis
+}   // namespace quant::analysis

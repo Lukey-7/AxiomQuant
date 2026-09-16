@@ -5,10 +5,8 @@
 
 namespace quant::optimization {
 
-Eigen::VectorXd PortfolioStats::compute_expected_returns(
-    const Eigen::MatrixXd& return_matrix,
-    double ann_factor
-) {
+Eigen::VectorXd PortfolioStats::compute_expected_returns(const Eigen::MatrixXd& return_matrix,
+                                                         double ann_factor) {
     if (return_matrix.rows() == 0 || return_matrix.cols() == 0) {
         throw std::invalid_argument("Empty return matrix");
     }
@@ -17,10 +15,8 @@ Eigen::VectorXd PortfolioStats::compute_expected_returns(
     return mean_daily * ann_factor;
 }
 
-Eigen::MatrixXd PortfolioStats::compute_sample_covariance(
-    const Eigen::MatrixXd& return_matrix,
-    double ann_factor
-) {
+Eigen::MatrixXd PortfolioStats::compute_sample_covariance(const Eigen::MatrixXd& return_matrix,
+                                                          double ann_factor) {
     const size_t T = return_matrix.rows();
     const size_t N = return_matrix.cols();
     if (T < 2 || N == 0) {
@@ -35,11 +31,9 @@ Eigen::MatrixXd PortfolioStats::compute_sample_covariance(
     return cov_daily * ann_factor;
 }
 
-Eigen::MatrixXd PortfolioStats::compute_ledoit_wolf_covariance(
-    const Eigen::MatrixXd& return_matrix,
-    double ann_factor,
-    double* shrinkage_intensity
-) {
+Eigen::MatrixXd PortfolioStats::compute_ledoit_wolf_covariance(const Eigen::MatrixXd& return_matrix,
+                                                               double ann_factor,
+                                                               double* shrinkage_intensity) {
     const Eigen::Index T = return_matrix.rows();
     const Eigen::Index N = return_matrix.cols();
     if (T < 2 || N == 0) {
@@ -105,31 +99,25 @@ Eigen::MatrixXd PortfolioStats::compute_ledoit_wolf_covariance(
     return (delta * F + (1.0 - delta) * S) * ann_factor;
 }
 
-double PortfolioStats::portfolio_return(
-    const Eigen::VectorXd& weights,
-    const Eigen::VectorXd& expected_returns
-) {
+double PortfolioStats::portfolio_return(const Eigen::VectorXd& weights,
+                                        const Eigen::VectorXd& expected_returns) {
     return weights.dot(expected_returns);
 }
 
-double PortfolioStats::portfolio_volatility(
-    const Eigen::VectorXd& weights,
-    const Eigen::MatrixXd& cov_matrix
-) {
+double PortfolioStats::portfolio_volatility(const Eigen::VectorXd& weights,
+                                            const Eigen::MatrixXd& cov_matrix) {
     double var = weights.dot(cov_matrix * weights);
     return std::sqrt(std::max(0.0, var));
 }
 
-double PortfolioStats::portfolio_sharpe(
-    const Eigen::VectorXd& weights,
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    double risk_free_rate
-) {
+double PortfolioStats::portfolio_sharpe(const Eigen::VectorXd& weights,
+                                        const Eigen::VectorXd& expected_returns,
+                                        const Eigen::MatrixXd& cov_matrix,
+                                        double risk_free_rate) {
     double ret = portfolio_return(weights, expected_returns);
     double vol = portfolio_volatility(weights, cov_matrix);
     if (vol <= 1e-9) return 0.0;
     return (ret - risk_free_rate) / vol;
 }
 
-} // namespace quant::optimization
+}   // namespace quant::optimization

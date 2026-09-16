@@ -28,12 +28,10 @@ public:
      * @param portfolio Current portfolio state.
      * @param pending_orders Queue where the strategy pushes new orders.
      */
-    virtual void on_bar(
-        size_t timeline_index,
-        const quant::data::MarketSnapshot& snapshot,
-        const Portfolio& portfolio,
-        std::vector<Order>& pending_orders
-    ) = 0;
+    virtual void on_bar(size_t timeline_index,
+                        const quant::data::MarketSnapshot& snapshot,
+                        const Portfolio& portfolio,
+                        std::vector<Order>& pending_orders) = 0;
 
     /**
      * @brief Called whenever an order is filled.
@@ -46,4 +44,4 @@ public:
     virtual void on_end(Portfolio& /*portfolio*/) {}
 };
 
-} // namespace quant::backtest
+}   // namespace quant::backtest

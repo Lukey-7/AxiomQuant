@@ -26,11 +26,9 @@ public:
      * @param num_std Multiplier for sample standard deviation (default 2.0).
      * @return BollingerBandsResult struct containing the aligned vectors.
      */
-    [[nodiscard]] static BollingerBandsResult calculate(
-        const std::vector<double>& prices,
-        size_t period = 20,
-        double num_std = 2.0
-    ) {
+    [[nodiscard]] static BollingerBandsResult calculate(const std::vector<double>& prices,
+                                                        size_t period = 20,
+                                                        double num_std = 2.0) {
         if (period == 0) {
             throw std::invalid_argument("Bollinger Bands period must be >= 1");
         }
@@ -39,13 +37,9 @@ public:
         }
 
         const size_t n = prices.size();
-        BollingerBandsResult result{
-            std::vector<double>(n, NaN),
-            std::vector<double>(n, NaN),
-            std::vector<double>(n, NaN),
-            std::vector<double>(n, NaN),
-            std::vector<double>(n, NaN)
-        };
+        BollingerBandsResult result{std::vector<double>(n, NaN), std::vector<double>(n, NaN),
+                                    std::vector<double>(n, NaN), std::vector<double>(n, NaN),
+                                    std::vector<double>(n, NaN)};
 
         if (n < period) {
             return result;
@@ -84,4 +78,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators

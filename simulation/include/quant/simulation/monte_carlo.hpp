@@ -45,9 +45,9 @@ struct MonteCarloReport {
     double p99_max_drawdown{0.0};
 
     // Risk probabilities
-    double prob_loss{0.0};              // Prob(Ending Wealth < Initial Wealth)
-    double prob_loss_gt_10pct{0.0};     // Prob(Ending Wealth < 0.9 * Initial)
-    double prob_loss_gt_20pct{0.0};     // Prob(Ending Wealth < 0.8 * Initial)
+    double prob_loss{0.0};            // Prob(Ending Wealth < Initial Wealth)
+    double prob_loss_gt_10pct{0.0};   // Prob(Ending Wealth < 0.9 * Initial)
+    double prob_loss_gt_20pct{0.0};   // Prob(Ending Wealth < 0.8 * Initial)
     double var_95_terminal{0.0};
     double cvar_95_terminal{0.0};
 
@@ -83,11 +83,9 @@ public:
      * @param cov_matrix       DAILY covariance matrix (N x N).
      * @param weights          Portfolio weights (N), typically summing to 1.
      */
-    [[nodiscard]] MonteCarloReport run_gbm_portfolio(
-        const Eigen::VectorXd& expected_returns,
-        const Eigen::MatrixXd& cov_matrix,
-        const Eigen::VectorXd& weights
-    ) const;
+    [[nodiscard]] MonteCarloReport run_gbm_portfolio(const Eigen::VectorXd& expected_returns,
+                                                     const Eigen::MatrixXd& cov_matrix,
+                                                     const Eigen::VectorXd& weights) const;
 
     /**
      * @brief Formats report as rich text table.
@@ -100,4 +98,4 @@ private:
     MonteCarloConfig config_;
 };
 
-} // namespace quant::simulation
+}   // namespace quant::simulation

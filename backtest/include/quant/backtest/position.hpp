@@ -17,17 +17,11 @@ public:
     Position() = default;
     explicit Position(std::string symbol) : ticker(std::move(symbol)) {}
 
-    [[nodiscard]] bool is_open() const noexcept {
-        return std::abs(quantity) > 1e-7;
-    }
+    [[nodiscard]] bool is_open() const noexcept { return std::abs(quantity) > 1e-7; }
 
-    [[nodiscard]] bool is_long() const noexcept {
-        return quantity > 1e-7;
-    }
+    [[nodiscard]] bool is_long() const noexcept { return quantity > 1e-7; }
 
-    [[nodiscard]] bool is_short() const noexcept {
-        return quantity < -1e-7;
-    }
+    [[nodiscard]] bool is_short() const noexcept { return quantity < -1e-7; }
 
     [[nodiscard]] double market_value(double current_price) const noexcept {
         return quantity * current_price;
@@ -67,7 +61,7 @@ public:
                 // Closing short: avg short price - buy to cover price
                 pnl = closing_qty * (average_price - fill_exec_price);
             }
-            pnl -= fill.commission; // Deduct commission from trade PnL
+            pnl -= fill.commission;   // Deduct commission from trade PnL
             realized_pnl += pnl;
 
             double remaining_qty = quantity + fill_qty;
@@ -87,4 +81,4 @@ public:
     }
 };
 
-} // namespace quant::backtest
+}   // namespace quant::backtest

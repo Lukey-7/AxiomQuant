@@ -7,11 +7,9 @@
 
 namespace quant::optimization {
 
-Eigen::VectorXd ConstrainedQpOptimizer::project_onto_bounded_simplex(
-    const Eigen::VectorXd& v,
-    double min_w,
-    double max_w
-) {
+Eigen::VectorXd ConstrainedQpOptimizer::project_onto_bounded_simplex(const Eigen::VectorXd& v,
+                                                                     double min_w,
+                                                                     double max_w) {
     const Eigen::Index n = v.size();
     if (n == 0) return v;
     if (min_w > max_w) {
@@ -42,7 +40,8 @@ Eigen::VectorXd ConstrainedQpOptimizer::project_onto_bounded_simplex(
     }
     std::sort(events.begin(), events.end(), [](const Breakpoint& a, const Breakpoint& b) {
         if (a.theta != b.theta) return a.theta < b.theta;
-        return a.becomes_free && !b.becomes_free; // a coordinate must become free before it can hit the floor
+        return a.becomes_free &&
+               !b.becomes_free;   // a coordinate must become free before it can hit the floor
     });
 
     // Left of every breakpoint all coordinates sit at the upper bound.
@@ -55,9 +54,8 @@ Eigen::VectorXd ConstrainedQpOptimizer::project_onto_bounded_simplex(
     for (const auto& e : events) {
         if (g(e.theta) <= 1.0) {
             // Root lies on the current linear segment (ending at e.theta).
-            theta = (count_free > 0.0)
-                ? (count_hi * max_w + count_lo * min_w + free_sum - 1.0) / count_free
-                : e.theta;
+            theta = (count_free > 0.0) ? (count_hi * max_w + count_lo * min_w + free_sum - 1.0) / count_free
+                                       : e.theta;
             break;
         }
         if (e.becomes_free) {
@@ -78,11 +76,9 @@ Eigen::VectorXd ConstrainedQpOptimizer::project_onto_bounded_simplex(
     return w;
 }
 
-OptimizationResult ConstrainedQpOptimizer::optimize_risk_aversion(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix,
-    double gamma
-) const {
+OptimizationResult ConstrainedQpOptimizer::optimize_risk_aversion(const Eigen::VectorXd& expected_returns,
+                                                                  const Eigen::MatrixXd& cov_matrix,
+                                                                  double gamma) const {
     const size_t n = expected_returns.size();
     if (cov_matrix.rows() != static_cast<int>(n) || cov_matrix.cols() != static_cast<int>(n)) {
         throw std::invalid_argument("Dimension mismatch between expected_returns and cov_matrix");
@@ -90,9 +86,8 @@ OptimizationResult ConstrainedQpOptimizer::optimize_risk_aversion(
 
     // Compute spectral radius / max eigenvalue for step size L
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(cov_matrix);
-    double L = (eigensolver.info() == Eigen::Success)
-        ? eigensolver.eigenvalues().maxCoeff()
-        : cov_matrix.norm(); // Frobenius norm as upper bound
+    double L = (eigensolver.info() == Eigen::Success) ? eigensolver.eigenvalues().maxCoeff()
+                                                      : cov_matrix.norm();   // Frobenius norm as upper bound
 
     if (L <= 1e-12) L = 1.0;
     double step_size = 1.0 / L;
@@ -140,33 +135,31 @@ OptimizationResult ConstrainedQpOptimizer::optimize_risk_aversion(
     res.weights = w;
     res.expected_return = PortfolioStats::portfolio_return(w, expected_returns);
     res.volatility = PortfolioStats::portfolio_volatility(w, cov_matrix);
-    res.sharpe_ratio = PortfolioStats::portfolio_sharpe(w, expected_returns, cov_matrix, config_.risk_free_rate);
+    res.sharpe_ratio =
+        PortfolioStats::portfolio_sharpe(w, expected_returns, cov_matrix, config_.risk_free_rate);
     res.converged = converged;
     res.method = "Constrained QP (gamma=" + std::to_string(gamma) + ")";
 
     return res;
 }
 
-OptimizationResult ConstrainedQpOptimizer::global_minimum_variance(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix
-) const {
+OptimizationResult ConstrainedQpOptimizer::global_minimum_variance(const Eigen::VectorXd& expected_returns,
+                                                                   const Eigen::MatrixXd& cov_matrix) const {
     auto res = optimize_risk_aversion(expected_returns, cov_matrix, 0.0);
     res.method = "Constrained Long-Only GMV";
     return res;
 }
 
-OptimizationResult ConstrainedQpOptimizer::maximum_sharpe_portfolio(
-    const Eigen::VectorXd& expected_returns,
-    const Eigen::MatrixXd& cov_matrix
-) const {
+OptimizationResult ConstrainedQpOptimizer::maximum_sharpe_portfolio(const Eigen::VectorXd& expected_returns,
+                                                                    const Eigen::MatrixXd& cov_matrix) const {
     const auto solve_at = [&](double log_gamma) {
         return optimize_risk_aversion(expected_returns, cov_matrix, std::pow(10.0, log_gamma));
     };
     // Tangency condition h(gamma) = gamma * (return - rf) - variance: negative towards the GMV end,
     // positive once the frontier's slope from the risk-free rate is matched.
     const auto tangency_gap = [&](double log_gamma, const OptimizationResult& r) {
-        return std::pow(10.0, log_gamma) * (r.expected_return - config_.risk_free_rate) - r.volatility * r.volatility;
+        return std::pow(10.0, log_gamma) * (r.expected_return - config_.risk_free_rate) -
+               r.volatility * r.volatility;
     };
 
     const size_t grid_steps = 100;
@@ -211,4 +204,4 @@ OptimizationResult ConstrainedQpOptimizer::maximum_sharpe_portfolio(
     return best_result;
 }
 
-} // namespace quant::optimization
+}   // namespace quant::optimization

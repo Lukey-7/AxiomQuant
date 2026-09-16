@@ -50,7 +50,8 @@ public:
     [[nodiscard]] MarketDataUniverse slice(size_t begin, size_t end) const;
 
     /**
-     * @brief Returns a matrix of close prices (rows = timeline points, cols = tickers in get_tickers() order).
+     * @brief Returns a matrix of close prices (rows = timeline points, cols = tickers in get_tickers()
+     * order).
      */
     [[nodiscard]] std::vector<std::vector<double>> get_aligned_close_matrix() const;
 
@@ -72,4 +73,4 @@ private:
     std::vector<MarketSnapshot> snapshots_;
 };
 
-} // namespace quant::data
+}   // namespace quant::data

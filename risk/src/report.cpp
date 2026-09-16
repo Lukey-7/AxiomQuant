@@ -19,7 +19,7 @@ std::string format_ratio(double v) {
     return ss.str();
 }
 
-} // namespace
+}   // namespace
 
 PerformanceSummary RiskReport::evaluate(const backtest::BacktestResult& result, double risk_free_rate) {
     PerformanceSummary s;
@@ -65,7 +65,8 @@ PerformanceSummary RiskReport::evaluate(const backtest::BacktestResult& result, 
         eq_series.push_back(pt.equity);
         if (std::abs(pt.positions_value) > 1e-9) ++invested_bars;
     }
-    s.exposure = eq_series.empty() ? 0.0 : static_cast<double>(invested_bars) / static_cast<double>(eq_series.size());
+    s.exposure =
+        eq_series.empty() ? 0.0 : static_cast<double>(invested_bars) / static_cast<double>(eq_series.size());
 
     s.drawdown_details = RiskMetrics::calculate_drawdown(eq_series);
     s.max_drawdown = s.drawdown_details.max_drawdown;
@@ -102,15 +103,14 @@ PerformanceSummary RiskReport::evaluate(const backtest::BacktestResult& result, 
         td.profit_factor = std::numeric_limits<double>::infinity();
     }
 
-    s.total_transaction_costs = result.total_commissions + result.total_slippage_cost + result.total_spread_cost;
+    s.total_transaction_costs =
+        result.total_commissions + result.total_slippage_cost + result.total_spread_cost;
 
     return s;
 }
 
-std::string RiskReport::generate_text_report(
-    const backtest::BacktestResult& result,
-    const PerformanceSummary& s
-) {
+std::string RiskReport::generate_text_report(const backtest::BacktestResult& result,
+                                             const PerformanceSummary& s) {
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(2);
     const auto& td = s.trade_details;
@@ -119,8 +119,8 @@ std::string RiskReport::generate_text_report(
     ss << "                      QUANT BACKTEST PERFORMANCE REPORT                  \n";
     ss << "=========================================================================\n";
     ss << "Strategy:       " << result.strategy_name << "\n";
-    ss << "Period:         " << result.start_date << " -> " << result.end_date
-       << " (" << result.total_bars << " bars, " << s.years << " yrs)\n";
+    ss << "Period:         " << result.start_date << " -> " << result.end_date << " (" << result.total_bars
+       << " bars, " << s.years << " yrs)\n";
     ss << "Initial Cash:   $" << s.initial_equity << "\n";
     ss << "Final Equity:   $" << s.final_equity << "\n";
     ss << "-------------------------------------------------------------------------\n";
@@ -134,8 +134,8 @@ std::string RiskReport::generate_text_report(
     ss << "-------------------------------------------------------------------------\n";
     ss << " RISK-ADJUSTED RETURN METRICS\n";
     ss << "-------------------------------------------------------------------------\n";
-    ss << "  Sharpe Ratio (Rf=" << std::setprecision(1) << (s.risk_free_rate * 100.0) << "%):      "
-       << std::setprecision(3) << s.sharpe_ratio << "\n";
+    ss << "  Sharpe Ratio (Rf=" << std::setprecision(1) << (s.risk_free_rate * 100.0)
+       << "%):      " << std::setprecision(3) << s.sharpe_ratio << "\n";
     ss << "  Sortino Ratio (MAR=0%):      " << s.sortino_ratio << "\n";
     ss << "  Calmar Ratio (CAGR/MaxDD):   " << s.calmar_ratio << "\n";
     ss << "-------------------------------------------------------------------------\n";
@@ -154,8 +154,8 @@ std::string RiskReport::generate_text_report(
     ss << " TRADE STATISTICS (realized PnL of closing fills)\n";
     ss << "-------------------------------------------------------------------------\n";
     ss << std::setprecision(2);
-    ss << "  Fills Executed:              " << result.total_trades
-       << "  (" << td.closed_trades << " closing)\n";
+    ss << "  Fills Executed:              " << result.total_trades << "  (" << td.closed_trades
+       << " closing)\n";
     if (td.closed_trades > 0) {
         ss << "  Win Rate:                    " << (td.win_rate * 100.0) << " %\n";
     } else {
@@ -172,11 +172,9 @@ std::string RiskReport::generate_text_report(
     return ss.str();
 }
 
-std::string RiskReport::render_ascii_chart(
-    const std::vector<double>& equity_points,
-    size_t width,
-    size_t height
-) {
+std::string RiskReport::render_ascii_chart(const std::vector<double>& equity_points,
+                                           size_t width,
+                                           size_t height) {
     if (equity_points.empty() || width == 0 || height < 2) return "";
 
     double min_val = *std::min_element(equity_points.begin(), equity_points.end());
@@ -199,7 +197,7 @@ std::string RiskReport::render_ascii_chart(
         double norm = (v - min_val) / (max_val - min_val);
         size_t row = static_cast<size_t>(std::floor(norm * static_cast<double>(height - 1) + 0.5));
         if (row >= height) row = height - 1;
-        return (height - 1) - row; // invert for top-down display
+        return (height - 1) - row;   // invert for top-down display
     };
 
     // Draw a connected line: fill the vertical gap between consecutive samples.
@@ -208,7 +206,8 @@ std::string RiskReport::render_ascii_chart(
         size_t row = to_row(sampled[col]);
         size_t lo = std::min(row, prev_row);
         size_t hi = std::max(row, prev_row);
-        for (size_t r = lo; r <= hi; ++r) grid[r][col] = (r == row) ? '*' : '|';
+        for (size_t r = lo; r <= hi; ++r)
+            grid[r][col] = (r == row) ? '*' : '|';
         prev_row = row;
     }
 
@@ -216,15 +215,15 @@ std::string RiskReport::render_ascii_chart(
     ss << std::fixed << std::setprecision(0);
     ss << "\n--- EQUITY CURVE ---\n";
     for (size_t r = 0; r < height; ++r) {
-        double level = max_val - (static_cast<double>(r) / static_cast<double>(height - 1)) * (max_val - min_val);
+        double level =
+            max_val - (static_cast<double>(r) / static_cast<double>(height - 1)) * (max_val - min_val);
         ss << std::setw(10) << level << " |" << grid[r] << "\n";
     }
     ss << std::string(11, ' ') << "+" << std::string(width, '-') << "\n";
     ss << std::string(12, ' ') << "Start: $" << equity_points.front()
-       << std::string(width > 32 ? width - 32 : 1, ' ')
-       << "End: $" << equity_points.back() << "\n\n";
+       << std::string(width > 32 ? width - 32 : 1, ' ') << "End: $" << equity_points.back() << "\n\n";
 
     return ss.str();
 }
 
-} // namespace quant::risk
+}   // namespace quant::risk

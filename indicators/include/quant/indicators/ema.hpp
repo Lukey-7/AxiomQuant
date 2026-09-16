@@ -16,7 +16,9 @@ public:
      * @param smoothing Multiplier factor (default = 2.0, giving alpha = 2 / (N + 1)).
      * @return Vector of same length, with first (period - 1) elements as NaN.
      */
-    [[nodiscard]] static std::vector<double> calculate(const std::vector<double>& data, size_t period, double smoothing = 2.0) {
+    [[nodiscard]] static std::vector<double> calculate(const std::vector<double>& data,
+                                                       size_t period,
+                                                       double smoothing = 2.0) {
         if (period == 0) {
             throw std::invalid_argument("EMA period must be >= 1");
         }
@@ -46,4 +48,4 @@ public:
     }
 };
 
-} // namespace quant::indicators
+}   // namespace quant::indicators
