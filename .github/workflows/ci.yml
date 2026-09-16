@@ -15,6 +15,25 @@ jobs:
       - name: Unit tests (offline)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
 
+  benchmark:
+    name: Benchmark vs NumPy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the benchmark tool
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target axiom_bench --parallel
+      - name: Install NumPy
+        run: python3 -m pip install --quiet numpy
+      - name: Run the benchmark
+        run: python3 scripts/benchmark.py --binary build/bin/axiom_bench --data sample_data --output bench-out
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark
+          path: bench-out/
+
   optimizer-crosscheck:
     name: Optimizer vs reference solver
     runs-on: ubuntu-latest
