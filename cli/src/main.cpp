@@ -141,8 +141,7 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--horizon") opt.horizon = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--seed") opt.seed = parse_uint(arg, value());
         else if (arg == "--bootstrap") opt.bootstrap = static_cast<size_t>(parse_uint(arg, value()));
-        else if (arg == "--block")
-            opt.block = parse_double(arg, value());
+        else if (arg == "--block") opt.block = parse_double(arg, value());
         else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-test") opt.wf_test = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--db") {

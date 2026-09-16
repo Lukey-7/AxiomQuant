@@ -117,7 +117,8 @@ TEST_CASE(TestMonteCarlo_BlockBootstrap_PreservesContiguousBlocks) {
     // starting point, so with a block far longer than the horizon every path ends at the same wealth.
     std::vector<double> history{0.02, -0.01, 0.03, -0.02, 0.015, -0.005, 0.01, 0.0, -0.03, 0.025};
     double product = 1.0;
-    for (double r : history) product *= 1.0 + r;
+    for (double r : history)
+        product *= 1.0 + r;
 
     quant::simulation::MonteCarloConfig cfg;
     cfg.num_simulations = 200;
@@ -140,7 +141,8 @@ TEST_CASE(TestMonteCarlo_BlockBootstrap_PreservesContiguousBlocks) {
 
 TEST_CASE(TestMonteCarlo_BlockBootstrap_IsDeterministicAndThreadIndependent) {
     std::vector<double> history;
-    for (int i = 0; i < 300; ++i) history.push_back(0.0004 + 0.01 * std::sin(0.3 * i));
+    for (int i = 0; i < 300; ++i)
+        history.push_back(0.0004 + 0.01 * std::sin(0.3 * i));
 
     quant::simulation::MonteCarloConfig cfg;
     cfg.num_simulations = 500;
