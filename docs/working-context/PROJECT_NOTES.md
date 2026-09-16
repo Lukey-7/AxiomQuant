@@ -1,4 +1,4 @@
-# Working context for AxiomQuant
+# Project notes
 
 Read this first when picking the project up cold. It records the constraints, the verification loop,
 what is already done, and what is worth doing next.
@@ -9,9 +9,9 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 
 ## Hard constraints
 
-1. **Nothing in the repository may attribute the work to an AI assistant.** No commit trailers, no
-   `Co-Authored-By`, no mentions in the README, RESEARCH, code comments or docs. This file is working
-   context only; keep its content about the project.
+1. **No tool or vendor attribution anywhere in the repository.** No commit trailers, no
+   `Co-Authored-By`, no mentions in the README, RESEARCH, code comments or docs. This file stays
+   about the project itself.
 2. **Build and test locally before pushing.** MSYS2/UCRT64 provides GCC, CMake, Ninja, clang-format
    and clang-tidy at `C:\msys64\ucrt64\bin` (add it to PATH). `cmake -S . -B build -G Ninja
    -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel` takes about a minute;
@@ -31,7 +31,7 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 
 - `gh` has two accounts logged in and **the active one keeps reverting to VD0WQ, which cannot push**.
   Before pushing, check `gh auth status`; if VD0WQ is active, the user must run
-  `gh auth switch --user Lukey-7` (the assistant is not permitted to run it). Push immediately after.
+  `gh auth switch --user Lukey-7` by hand, then push immediately after.
 - Long heredocs through the Bash tool fail with `ENAMETOOLONG`, and backslash escapes inside them get
   mangled. Use the file-writing tool for anything sizeable, and the editing tool for precise patches.
 - Files on disk are CRLF (git `autocrlf`); normalise before string matching in scripts.
