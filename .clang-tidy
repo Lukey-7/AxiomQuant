@@ -1,8 +1,10 @@
 # Correctness and performance checks only: no stylistic rewrites, since clang-format owns layout.
 # Eigen and the standard library mix signed and unsigned index types, so the narrowing and
 # swappable-parameter checks are off rather than suppressed one by one. misc-const-correctness is a
-# style preference this codebase does not follow, and the two empty catch blocks in the CLI are
-# deliberate parse fall-throughs that raise a clearer error immediately afterwards.
+# style preference this codebase does not follow, every header here uses #pragma once by design,
+# the test harness registers cases through static initialisers, main() already reports std::exception
+# and exits non-zero, the tests seed generators deterministically on purpose, and the two empty catch
+# blocks in the CLI are deliberate parse fall-throughs that raise a clearer error immediately after.
 Checks: >
   -*,
   bugprone-*,
@@ -18,7 +20,11 @@ Checks: >
   -misc-const-correctness,
   -misc-non-private-member-variables-in-classes,
   -misc-include-cleaner,
-  -misc-use-anonymous-namespace
+  -misc-use-anonymous-namespace,
+  -portability-avoid-pragma-once,
+  -bugprone-throwing-static-initialization,
+  -bugprone-exception-escape,
+  -bugprone-random-generator-seed
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*/(analysis|backtest|cli|data|indicators|optimization|risk|simulation)/.*'
 FormatStyle: file

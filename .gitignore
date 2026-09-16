@@ -44,3 +44,4 @@ compile_commands.json
 cli-output/
 build*/
 __pycache__/
+build-tidy/

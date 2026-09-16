@@ -12,6 +12,7 @@
 #include "quant/backtest/strategies/sma_crossover.hpp"
 #include "quant/backtest/strategies/rsi_mean_reversion.hpp"
 #include "quant/backtest/strategies/momentum.hpp"
+#include "quant/backtest/strategies/vol_target.hpp"
 #include "quant/backtest/strategies/buy_and_hold.hpp"
 #include "quant/risk/metrics.hpp"
 #include "quant/risk/report.hpp"
@@ -20,6 +21,7 @@
 #include "quant/optimization/unconstrained.hpp"
 #include "quant/optimization/constrained_qp.hpp"
 #include "quant/optimization/efficient_frontier.hpp"
+#include "quant/analysis/cost_sensitivity.hpp"
 #include "quant/analysis/significance.hpp"
 #include "quant/analysis/walk_forward.hpp"
 
@@ -404,6 +406,7 @@ int run_pipeline(const Options& opt) {
         built.push_back(
             std::make_unique<backtest::strategies::RsiMeanReversionStrategy>(ticker, 14, 30.0, 70.0, 0.95));
         built.push_back(std::make_unique<backtest::strategies::MultiAssetMomentumStrategy>(60, 20, 2, 0.95));
+        built.push_back(std::make_unique<backtest::strategies::VolatilityTargetStrategy>(ticker, 0.10, 20));
         return built;
     };
     auto strategies = make_strategies();
@@ -482,6 +485,18 @@ int run_pipeline(const Options& opt) {
         std::cout << "  " << std::string(88, '-') << "\n";
         std::cout
             << "  (LA) fills at the close that generated the signal - information no live trader has.\n";
+    }
+
+    // ------------------------------------------------- cost sensitivity
+    {
+        analysis::BacktestSetup cost_setup;
+        cost_setup.initial_cash = opt.capital;
+        cost_setup.execution = exec_cfg;
+        cost_setup.engine = engine_cfg;
+        cost_setup.risk_free_rate = opt.risk_free;
+        const auto cost_rows =
+            analysis::sweep_costs(universe, make_strategies, cost_setup, {0.0, 0.5, 1.0, 2.0, 5.0, 10.0});
+        std::cout << "\n" << analysis::format_cost_sensitivity_report(cost_rows);
     }
 
     // ----------------------------------------------------------------- sweep

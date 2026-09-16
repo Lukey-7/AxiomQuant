@@ -40,7 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format clang-tidy
+        run: |
+          # clang-format is pinned through pip so CI and a developer machine run the same version;
+          # formatting output differs between major versions.
+          python3 -m pip install --quiet 'clang-format==21.1.2'
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-tidy
       - name: Formatting
         run: |
           mapfile -t files < <(git ls-files '*.cpp' '*.hpp' | grep -v '^third_party/')
