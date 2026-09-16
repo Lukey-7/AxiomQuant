@@ -11,8 +11,8 @@ competitive in sample, with a mean in-sample Sharpe of 1.03; out of sample that 
 clearly positive (p = 0.017). See section 4.
 
 Every number below comes from one CI run of this repository, not from a local machine:
-[run 34929115002](https://github.com/Lukey-7/AxiomQuant/actions/runs/34929115002), workflow *Real
-data*, job *Fetch and analyse real prices*, `ubuntu-latest`, OpenMP on 4 threads, commit `7e129ae`.
+[run 34930622057](https://github.com/Lukey-7/AxiomQuant/actions/runs/34930622057), workflow *Real
+data*, job *Fetch and analyse real prices*, `ubuntu-latest`, OpenMP on 4 threads, commit `0c41c51`.
 It ran
 
 ```bash
@@ -188,20 +188,29 @@ returned δ = 1.0000, because that data's pairwise correlations were almost perf
 
 | Asset | GMV (unconstrained) | Tangency (unconstrained) | GMV (long-only) | Max Sharpe (long-only) | Risk parity |
 |---|---|---|---|---|---|
-| AAPL | -9.48% | 58.19% | 18.83% | 32.55% | 26.29% |
-| AMZN | -4.39% | 31.83% | 2.78% | 20.81% | 18.79% |
-| GOOGL | -4.16% | 40.89% | 17.10% | 23.00% | 17.68% |
-| MSFT | -7.92% | 46.41% | 21.28% | 23.63% | 15.96% |
-| SPY | 125.95% | -77.32% | 40.00% | 0.00% | 21.27% |
-| **Expected return** | 11.20% | 36.42% | 21.57% | 26.93% | 24.36% |
-| **Volatility** | 17.17% | 33.21% | 20.87% | 24.69% | 22.72% |
-| **Sharpe (2%)** | 0.536 | 1.036 | 0.938 | 1.010 | 0.984 |
+| AAPL | -9.48% | 58.19% | 18.83% | 32.55% | 18.73% |
+| AMZN | -4.39% | 31.83% | 2.78% | 20.81% | 16.30% |
+| GOOGL | -4.16% | 40.89% | 17.10% | 23.00% | 18.12% |
+| MSFT | -7.92% | 46.41% | 21.28% | 23.63% | 18.64% |
+| SPY | 125.95% | -77.32% | 40.00% | 0.00% | 28.21% |
+| **Expected return** | 11.20% | 36.42% | 21.57% | 26.93% | 23.42% |
+| **Volatility** | 17.17% | 33.21% | 20.87% | 24.69% | 22.04% |
+| **Sharpe (2%)** | 0.536 | 1.036 | 0.938 | 1.010 | 0.972 |
 
 The unconstrained tangency portfolio shorts SPY by 77% to fund 177% in the four stocks. That is the
 optimizer exploiting the fact that SPY is largely made of those same stocks: short the index, keep
 their excess return. It is a textbook example of why unconstrained mean-variance weights are unusable.
 With long-only weights and a 40% cap per asset, the max-Sharpe portfolio drops SPY entirely and the
 minimum-variance portfolio puts the full 40% cap into it.
+
+Risk parity gives every asset the same share of portfolio variance, which is why SPY — the least
+volatile column — carries the largest weight (28.2%) and the four single stocks sit near 17–19%.
+
+Every portfolio in this table is checked against an independent solver on each push: closed-form
+linear algebra for the unconstrained columns and cvxpy/Clarabel for the constrained ones, agreeing to
+1e-8 (CI job *Optimizer vs reference solver*). That check is what caught the earlier risk parity
+implementation, which normalised inside its iteration and left risk contributions up to 14 percentage
+points apart.
 
 **These expected returns are in-sample means of the stocks that won the decade.** A 26.9% expected
 return is a description of the past, not a forecast. The weights show what the machinery does;

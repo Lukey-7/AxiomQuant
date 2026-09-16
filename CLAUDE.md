@@ -40,8 +40,9 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 ## Current state (all green)
 
 `main` is green on Linux/GCC, macOS/Apple Clang, Windows/MSVC and a Clang ASan+UBSan build:
-**51 tests** plus an end-to-end CLI run, plus the Python *Data tooling* job. Reference run for every
-number in RESEARCH.md and the README charts: **34929115002** (workflow *Real data*, job *Fetch and
+**53 tests** plus an end-to-end CLI run, plus the *Data tooling*, *Optimizer vs reference solver* and
+*Benchmark vs NumPy* jobs. Reference run for every
+number in RESEARCH.md and the README charts: **34930622057** (workflow *Real data*, job *Fetch and
 analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-09-14). The README's
 *Sample output* section still quotes synthetic-data run **34671037291** (job *Linux (GCC)*).
 
@@ -56,10 +57,12 @@ simulation/   deterministic per-path RNG (rng.hpp, shared with analysis), bootst
 optimization/ covariance + Ledoit-Wolf, GMV/tangency, constrained QP (FISTA), frontier, risk parity
 analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward; significance: stationary
               block bootstrap of Sharpe (paired), probabilistic and deflated Sharpe ratio
-cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study
-tests/        51 tests; test_support.hpp builds synthetic universes and scripted strategies
+cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study;
+              axiom_optimizer_dump and axiom_bench feed the two cross-check/benchmark CI jobs
+tests/        53 tests; test_support.hpp builds synthetic universes and scripted strategies
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
-              test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG)
+              test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG),
+              check_optimizer.py (cvxpy cross-check), benchmark.py (NumPy benchmark + SVG)
 docs/         STUDY_GUIDE.md, images/*.svg
 ```
 
@@ -90,16 +93,6 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
 
 ---
 
-## Paused work (resume here)
-
-- `improvements` (green, NOT merged to main): optimizer cross-check job + risk parity fix + FISTA
-  restart + tangency root for max Sharpe. Risk parity weights change, so RESEARCH.md section 5 and
-  the README charts must be refreshed from a new Real data run on `improvements` before merging.
-- `wip-benchmarks` (untested, no CI yet): `cli/src/bench.cpp` (`axiom_bench`) and
-  `scripts/benchmark.py` (NumPy reference, CSV/markdown/SVG). NumPy side verified locally. Still to
-  do: CI job that builds `axiom_bench`, runs the script and uploads the artifact; replace the README
-  Performance table with its output; then items 3 (polish) and 4-6 below.
-
 ## Next steps, highest value first
 
 1. ~~Rerun the analysis on real data~~ — done. Follow-ups it exposed: the five-name universe is
@@ -110,10 +103,10 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
    0.185 has p = 0.27; possible follow-ups: Politis-White automatic block length, and an effective
    number of trials for the deflated Sharpe ratio (the 41 SMA pairs are highly correlated).
    Yahoo re-serves slightly different adjusted closes on each download, so always quote one run.
-3. **Cross-validate the optimizer against a reference solver** (`cvxpy` / `PyPortfolioOpt`) in a CI
-   job, asserting agreement to ~1e-8 on the constrained problems.
-4. **Benchmark against a reference implementation** (vectorised NumPy) with the script committed, plus
-   a threads-vs-throughput scaling chart. Present timings relative to something, not in isolation.
+3. ~~Cross-validate the optimizer~~ — done (`scripts/check_optimizer.py`, CI job *Optimizer vs
+   reference solver*). It found and fixed a risk-parity bug; solver accuracy is now ~1e-11.
+4. ~~Benchmark against vectorised NumPy~~ — done (`scripts/benchmark.py`, `cli/src/bench.cpp`, CI job
+   *Benchmark vs NumPy*, README Performance). 1.4-3.7x single-threaded, 3.3-10.8x on 4 threads.
 5. **Polish:** `clang-format` + `clang-tidy` in CI, coverage reporting, block bootstrap in the
    simulation module, cost-sensitivity sweep, volatility-targeted position sizing.
 

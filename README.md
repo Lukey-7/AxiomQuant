@@ -13,8 +13,10 @@ show a profitable strategy; it is to build machinery honest enough to tell you w
 not profitable. On 11.7 years of real prices it says exactly that: walk-forward SMA crossover returned
 +32.3% out of sample against +254.6% for buy-and-hold SPY. See **[RESEARCH.md](RESEARCH.md)**.
 
-43 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
-AddressSanitizer + UndefinedBehaviorSanitizer on every push.
+53 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
+AddressSanitizer + UndefinedBehaviorSanitizer on every push. Two further jobs check the engine against
+outside references: every optimizer against cvxpy/Clarabel and closed-form solutions to 1e-8, and the
+Monte Carlo and bootstrap workloads against vectorised NumPy implementations of the same tasks.
 
 ---
 
@@ -39,7 +41,7 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 </details>
 
-Charts come from [Real data run 34929115002](https://github.com/Lukey-7/AxiomQuant/actions/runs/34929115002)
+Charts come from [Real data run 34930622057](https://github.com/Lukey-7/AxiomQuant/actions/runs/34930622057)
 (SPY, AAPL, AMZN, GOOGL, MSFT, 2015-01-02 to 2026-09-14). They are generated from the CLI's own CSV
 exports by `scripts/make_charts.py`, which uses only the Python standard library:
 
@@ -314,16 +316,26 @@ Sharpe (2%)              0.248             0.765             0.310             0
 
 ## Performance
 
-Measured in the same CI run, on a GitHub-hosted `ubuntu-latest` runner (4 vCPU), GCC Release build
-with OpenMP 4.5. These are shared virtual machines, so treat them as order-of-magnitude figures.
+Timings on their own say nothing, so every workload here is also implemented in vectorised NumPy
+(`scripts/benchmark.py`, run in CI) and the two are timed on the same machine, on the same inputs,
+computing the same statistics. Both implementations print their result so the comparison can be
+checked, not assumed.
 
-| Operation | Size | Time |
-|---|---|---|
-| Strategy tournament (4 backtests) | 1,304 bars each | **0.9 ms** total |
-| SMA parameter sweep | 41 pairs × 1,304 bars | **13.1 ms** |
-| Monte Carlo, bootstrap | 50,000 paths × 252 days | **18.2 ms** (2.7M paths/s) |
-| Monte Carlo, correlated 5-asset GBM | 50,000 paths × 252 days | **331.5 ms** (151k paths/s) |
-| Full pipeline (8 stages, 50k paths) | — | under 1 s |
+![Throughput relative to vectorised NumPy](docs/images/benchmark.svg)
+
+From CI run [35052074446](https://github.com/Lukey-7/AxiomQuant/actions/runs/35052074446), job
+*Benchmark vs NumPy*, `ubuntu-latest` (4 vCPU), GCC Release with OpenMP, best of 5 runs:
+
+| Workload | Size | NumPy | C++ 1 thread | C++ 2 threads | C++ 4 threads |
+|---|---|---|---|---|---|
+| Monte Carlo, bootstrap | 50,000 paths × 252 days | 245 ms | 66 ms (**3.7×**) | 36 ms (6.7×) | 32 ms (7.8×) |
+| Monte Carlo, correlated GBM portfolio | 50,000 paths × 252 days | 1,810 ms | 1,264 ms (**1.4×**) | 640 ms (2.8×) | 553 ms (3.3×) |
+| Stationary block bootstrap of Sharpe | 10,000 resamples | 386 ms | 117 ms (**3.3×**) | 60 ms (6.5×) | 36 ms (10.8×) |
+
+Single-threaded, the engine is 1.4–3.7× faster than NumPy; the gap is smallest on the GBM workload,
+which is dominated by matrix multiplication that NumPy hands to BLAS. Scaling from 1 to 4 threads is
+2.1–3.2×, short of linear on a shared 4-vCPU runner. These are virtual machines, so treat the absolute
+numbers as order-of-magnitude figures and the ratios as the point.
 
 ---
 
@@ -383,7 +395,7 @@ simulation/   deterministic RNG, bootstrap and correlated GBM Monte Carlo
 optimization/ covariance estimation, Markowitz solvers, constrained QP, frontier
 analysis/     window evaluation, parameter sweeps, walk-forward
 cli/          axiomquant, the end-to-end pipeline
-tests/        43 unit and regression tests
+tests/        53 unit and regression tests
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ```
 
