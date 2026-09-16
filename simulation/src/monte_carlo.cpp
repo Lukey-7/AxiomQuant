@@ -16,6 +16,13 @@ namespace quant::simulation {
 
 namespace {
 
+// Describes how run_simulation resampled, for the report header.
+std::string bootstrap_label(double block_length) {
+    if (block_length <= 1.0) return "Empirical bootstrap (i.i.d. resampling)";
+    return "Stationary block bootstrap (mean block " + std::to_string(static_cast<int>(block_length + 0.5)) +
+           " days)";
+}
+
 inline void track_drawdown(double wealth, double& peak, double& max_dd) noexcept {
     if (wealth > peak) {
         peak = wealth;
@@ -124,6 +131,8 @@ MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& his
 
     const bool bootstrap = config_.use_bootstrap && !historical_returns.empty();
     const size_t n_hist = historical_returns.size();
+    const double block_length = std::max(1.0, config_.block_length);
+    const double restart_probability = 1.0 / block_length;
 
     // GBM calibration: E[S_T] = S_0 * exp(mu * T) with mu the annualized arithmetic mean return.
     const double dt = 1.0 / 252.0;
@@ -147,8 +156,13 @@ MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& his
         PathRng rng(seed, static_cast<uint64_t>(i));
         double wealth = S0, peak = S0, max_dd = 0.0;
         if (bootstrap) {
+            size_t pos = rng.index(n_hist);
             for (size_t t = 0; t < H; ++t) {
-                wealth *= 1.0 + historical_returns[rng.index(n_hist)];
+                // Stationary bootstrap: continue the current block, or jump to a fresh start.
+                if (t > 0) {
+                    pos = rng.uniform() < restart_probability ? rng.index(n_hist) : (pos + 1) % n_hist;
+                }
+                wealth *= 1.0 + historical_returns[pos];
                 if (wealth < 0.0) wealth = 0.0;
                 track_drawdown(wealth, peak, max_dd);
             }
@@ -166,7 +180,7 @@ MonteCarloReport MonteCarloEngine::run_simulation(const std::vector<double>& his
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
     return summarize(
         terminal_wealth, max_drawdowns, config_, elapsed_ms, threads,
-        bootstrap ? "Empirical bootstrap (i.i.d. resampling)" : "Fitted geometric Brownian motion");
+        bootstrap ? bootstrap_label(block_length) : std::string("Fitted geometric Brownian motion"));
 }
 
 MonteCarloReport MonteCarloEngine::run_gbm_portfolio(const Eigen::VectorXd& expected_returns,

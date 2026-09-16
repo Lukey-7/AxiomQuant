@@ -5,6 +5,7 @@
 #include "quant/simulation/gbm.hpp"
 #include "quant/simulation/bootstrap.hpp"
 #include <cmath>
+#include <string>
 
 TEST_CASE(TestSimulation_GBM_Theoretical_Convergence) {
     // 50,000 paths with S0 = 100, mu = 10%, sigma = 20%, 1 year (252 days)
@@ -109,4 +110,50 @@ TEST_CASE(TestSimulation_CorrelatedGbmPortfolio_DailyRebalancedMean) {
     const double step = 0.6 * std::exp(0.08 / 252.0) + 0.4 * std::exp(0.12 / 252.0);
     const double expected = 100.0 * std::pow(step, 252.0);
     EXPECT_NEAR(report.mean_terminal_wealth, expected, expected * 0.015);
+}
+
+TEST_CASE(TestMonteCarlo_BlockBootstrap_PreservesContiguousBlocks) {
+    // A cyclic rotation of the whole history has the same product of gross returns whatever the
+    // starting point, so with a block far longer than the horizon every path ends at the same wealth.
+    std::vector<double> history{0.02, -0.01, 0.03, -0.02, 0.015, -0.005, 0.01, 0.0, -0.03, 0.025};
+    double product = 1.0;
+    for (double r : history) product *= 1.0 + r;
+
+    quant::simulation::MonteCarloConfig cfg;
+    cfg.num_simulations = 200;
+    cfg.horizon_days = history.size();
+    cfg.use_bootstrap = true;
+    cfg.block_length = 1e6;   // effectively never restarts inside the horizon
+    cfg.seed = 5;
+    const auto blocked = quant::simulation::MonteCarloEngine(cfg).run_simulation(history);
+
+    EXPECT_NEAR(blocked.mean_terminal_wealth, cfg.initial_wealth * product, 1e-6);
+    EXPECT_NEAR(blocked.std_terminal_wealth, 0.0, 1e-6);
+    EXPECT_TRUE(blocked.method.find("block bootstrap") != std::string::npos);
+
+    // i.i.d. resampling of the same history spreads terminal wealth out instead.
+    cfg.block_length = 1.0;
+    const auto iid = quant::simulation::MonteCarloEngine(cfg).run_simulation(history);
+    EXPECT_TRUE(iid.std_terminal_wealth > 0.01 * cfg.initial_wealth);
+    EXPECT_TRUE(iid.method.find("i.i.d.") != std::string::npos);
+}
+
+TEST_CASE(TestMonteCarlo_BlockBootstrap_IsDeterministicAndThreadIndependent) {
+    std::vector<double> history;
+    for (int i = 0; i < 300; ++i) history.push_back(0.0004 + 0.01 * std::sin(0.3 * i));
+
+    quant::simulation::MonteCarloConfig cfg;
+    cfg.num_simulations = 500;
+    cfg.horizon_days = 60;
+    cfg.use_bootstrap = true;
+    cfg.block_length = 12.0;
+    cfg.seed = 99;
+    cfg.num_threads = 1;
+    const auto one = quant::simulation::MonteCarloEngine(cfg).run_simulation(history);
+    cfg.num_threads = 4;
+    const auto four = quant::simulation::MonteCarloEngine(cfg).run_simulation(history);
+
+    EXPECT_EQ(one.mean_terminal_wealth, four.mean_terminal_wealth);
+    EXPECT_EQ(one.p05_wealth, four.p05_wealth);
+    EXPECT_EQ(one.p50_max_drawdown, four.p50_max_drawdown);
 }

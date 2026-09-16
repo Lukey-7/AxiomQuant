@@ -210,6 +210,7 @@ Options: `-DAXIOM_BUILD_TESTS=OFF`, `-DAXIOM_BUILD_CLI=OFF`, `-DAXIOM_ENABLE_OPE
 --horizon <days>      Monte Carlo horizon in trading days        (default: 252)
 --seed <n>            Monte Carlo and bootstrap seed             (default: 42)
 --bootstrap <n>       bootstrap resamples, significance test     (default: 10000)
+--block <days>        Monte Carlo bootstrap mean block length    (default: 1 = i.i.d.)
 --wf-train <bars>     walk-forward training window               (default: 504)
 --wf-test <bars>      walk-forward test window                   (default: 126)
 --db <path> | --no-db SQLite persistence                         (default: axiomquant.db)

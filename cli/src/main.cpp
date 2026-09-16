@@ -64,6 +64,7 @@ struct Options {
     size_t horizon{252};
     uint64_t seed{42};
     size_t bootstrap{10000};
+    double block{1.0};
     size_t wf_train{504};
     size_t wf_test{126};
     fs::path db_path{"axiomquant.db"};
@@ -88,6 +89,7 @@ void print_usage(std::ostream& os) {
           "  --horizon <days>      Monte Carlo horizon in trading days (default: 252)\n"
           "  --seed <n>            Monte Carlo and bootstrap seed (default: 42)\n"
           "  --bootstrap <n>       Bootstrap resamples for the significance test (default: 10000)\n"
+          "  --block <days>        Monte Carlo bootstrap mean block length (default: 1 = i.i.d.)\n"
           "  --wf-train <bars>     Walk-forward training window (default: 504)\n"
           "  --wf-test <bars>      Walk-forward test window (default: 126)\n"
           "  --db <path>           SQLite database file (default: axiomquant.db)\n"
@@ -139,6 +141,8 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--horizon") opt.horizon = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--seed") opt.seed = parse_uint(arg, value());
         else if (arg == "--bootstrap") opt.bootstrap = static_cast<size_t>(parse_uint(arg, value()));
+        else if (arg == "--block")
+            opt.block = parse_double(arg, value());
         else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-test") opt.wf_test = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--db") {
@@ -165,6 +169,7 @@ Options parse_args(int argc, char* argv[]) {
     if (opt.paths == 0) throw std::invalid_argument("--paths must be positive");
     if (opt.horizon == 0) throw std::invalid_argument("--horizon must be positive");
     if (opt.bootstrap == 0) throw std::invalid_argument("--bootstrap must be positive");
+    if (!(opt.block >= 1.0)) throw std::invalid_argument("--block must be at least 1");
     if (!(opt.max_weight > 0.0) || opt.max_weight > 1.0)
         throw std::invalid_argument("--max-weight must be in (0, 1]");
     if (opt.wf_train < 2 || opt.wf_test < 2)
@@ -615,6 +620,7 @@ int run_pipeline(const Options& opt) {
     mc_cfg.initial_wealth = opt.capital;
     mc_cfg.seed = opt.seed;
     mc_cfg.use_bootstrap = true;
+    mc_cfg.block_length = opt.block;
     const simulation::MonteCarloEngine mc(mc_cfg);
 
     std::cout << "  [A] Bootstrapped daily returns of " << best.result.strategy_name << "\n";

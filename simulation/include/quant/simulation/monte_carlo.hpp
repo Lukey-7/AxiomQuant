@@ -14,6 +14,7 @@ struct MonteCarloConfig {
     double initial_wealth{100000.0};
     uint64_t seed{42};
     bool use_bootstrap{false};     // run_simulation: resample history (true) or fit a GBM (false)
+    double block_length{1.0};      // bootstrap mean block length in days; 1 = i.i.d. resampling
     bool rebalance_daily{false};   // run_gbm_portfolio: constant-mix (true) or buy-and-hold (false)
     size_t num_threads{0};         // 0 = OpenMP default
 };
@@ -68,8 +69,14 @@ public:
     explicit MonteCarloEngine(MonteCarloConfig config = MonteCarloConfig{}) : config_(config) {}
 
     /**
-     * @brief Simulate a single return stream (e.g. backtest daily returns), either by i.i.d.
-     *        bootstrap resampling or by a GBM fitted to the stream's mean and volatility.
+     * @brief Simulate a single return stream (e.g. backtest daily returns), either by bootstrap
+     *        resampling or by a GBM fitted to the stream's mean and volatility.
+     *
+     * With `block_length` above 1 the bootstrap is the stationary block bootstrap of Politis & Romano
+     * (1994): each day continues the previous day's block with probability 1 - 1/L and otherwise
+     * jumps to a fresh uniform start, wrapping at the end of the history. Blocks keep volatility
+     * clustering and short-range autocorrelation that i.i.d. resampling destroys, which matters for
+     * drawdown statistics far more than for terminal wealth.
      */
     [[nodiscard]] MonteCarloReport run_simulation(const std::vector<double>& historical_returns) const;
 
