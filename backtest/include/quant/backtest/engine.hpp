@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "quant/backtest/portfolio.hpp"
 #include "quant/backtest/execution_model.hpp"
 #include "quant/backtest/strategy.hpp"
@@ -16,7 +18,7 @@ namespace quant::backtest {
  * close of bar t can only be traded at the open of bar t+1. SameBarClose reproduces the
  * idealised "trade on the signal close" convention and is kept for comparison studies.
  */
-enum class FillTiming {
+enum class FillTiming : std::uint8_t {
     NextBarOpen,
     SameBarClose
 };

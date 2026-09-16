@@ -1,6 +1,8 @@
 # Correctness and performance checks only: no stylistic rewrites, since clang-format owns layout.
 # Eigen and the standard library mix signed and unsigned index types, so the narrowing and
-# swappable-parameter checks are off rather than suppressed one by one.
+# swappable-parameter checks are off rather than suppressed one by one. misc-const-correctness is a
+# style preference this codebase does not follow, and the two empty catch blocks in the CLI are
+# deliberate parse fall-throughs that raise a clearer error immediately afterwards.
 Checks: >
   -*,
   bugprone-*,
@@ -12,6 +14,8 @@ Checks: >
   modernize-use-emplace,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,
+  -bugprone-empty-catch,
+  -misc-const-correctness,
   -misc-non-private-member-variables-in-classes,
   -misc-include-cleaner,
   -misc-use-anonymous-namespace

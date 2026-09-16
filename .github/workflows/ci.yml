@@ -53,7 +53,7 @@ jobs:
           git checkout -- .
       - name: Static analysis
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \n            -DAXIOM_ENABLE_OPENMP=OFF
           mapfile -t files < <(git ls-files '*.cpp' | grep -v '^third_party/')
           clang-tidy -p build "${files[@]}" > clang-tidy.log 2>&1 || true
           grep -c 'warning:' clang-tidy.log || true

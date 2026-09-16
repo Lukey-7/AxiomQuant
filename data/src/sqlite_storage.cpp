@@ -202,7 +202,7 @@ std::vector<std::string> SqliteStorage::get_stored_tickers() const {
 
     std::vector<std::string> tickers;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        tickers.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        tickers.emplace_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
     }
 
     sqlite3_finalize(stmt);

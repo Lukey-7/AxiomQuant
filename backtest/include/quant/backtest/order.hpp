@@ -5,12 +5,12 @@
 
 namespace quant::backtest {
 
-enum class OrderType {
+enum class OrderType : std::uint8_t {
     MARKET,
     LIMIT
 };
 
-enum class OrderSide {
+enum class OrderSide : std::uint8_t {
     BUY,
     SELL
 };
