@@ -4,16 +4,44 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A quantitative research engine in modern C++20: event-driven backtesting with realistic transaction
-costs, risk and tail analytics, parallel Monte Carlo, Markowitz portfolio optimization, and
-**walk-forward out-of-sample evaluation**. Every solver — the constrained QP, the Ledoit-Wolf
+A quantitative research engine I built in modern C++20: event-driven backtesting with realistic
+transaction costs, risk and tail analytics, parallel Monte Carlo, Markowitz portfolio optimization,
+and **walk-forward out-of-sample evaluation**. Every solver — the constrained QP, the Ledoit-Wolf
 estimator, the VaR models, the random number generator — is implemented from first principles, with
-Eigen used only for linear algebra and SQLite for persistence. The point of the project is not to
-show a profitable strategy; it is to build machinery honest enough to tell you when a strategy is
-not profitable. On 11.7 years of real prices it says exactly that: walk-forward SMA crossover returned
-+32.3% out of sample against +254.6% for buy-and-hold SPY. See **[RESEARCH.md](RESEARCH.md)**, and
-**[docs/SP500_STUDY.md](docs/SP500_STUDY.md)** for what happens to cross-sectional momentum when it may
-only hold stocks that were really in the S&P 500 that day: +957.7% becomes +106.6%.
+Eigen used only for linear algebra and SQLite for persistence.
+
+The point of the project is not to show a profitable strategy; it is to build machinery honest enough
+to tell you when a strategy is *not* profitable. On 11.7 years of real prices it says exactly that:
+walk-forward SMA crossover returned +32.3% out of sample against +254.6% for buy-and-hold SPY, and
+that +32.3% is not statistically distinguishable from zero.
+
+### What I built, in one table
+
+| Area | What it does | Where |
+|---|---|---|
+| Backtesting | Event loop, next-bar-open fills, four-component cost model, five strategies | `backtest/` |
+| Risk | CAGR, Sharpe, Sortino, Calmar, drawdowns, VaR/CVaR three ways | `risk/` |
+| Optimization | Covariance + Ledoit-Wolf, GMV/tangency, constrained QP, frontier, risk parity | `optimization/` |
+| Simulation | Reproducible per-path RNG, i.i.d. and block bootstrap, correlated GBM | `simulation/` |
+| Honesty layer | Walk-forward, cost sweeps, block-bootstrap error bars, deflated Sharpe | `analysis/` |
+| Point-in-time data | Index membership calendar so strategies cannot hold tomorrow's winners | `data/` |
+| Verification | 64 tests on 4 platforms, cvxpy cross-check, NumPy benchmark, coverage floor | `.github/` |
+
+### What it found
+
+- Simple technical strategies **did not** beat buy-and-hold after costs, out of sample.
+- That result has an error bar: Sharpe 0.19, 95% interval −0.42 to 0.82, p = 0.28.
+- In-sample parameter selection overstated performance by about **2.7×**.
+- Survivorship bias was worth roughly **850 percentage points**: momentum returned +957.7% on five
+  symbols chosen today and +106.6% on the S&P 500 as it actually was.
+- The one useful positive result: **volatility targeting** matched buy-and-hold's Sharpe (0.69 vs
+  0.71) with a **13.2%** maximum drawdown instead of 33.4%.
+- Cross-checking the optimizer against cvxpy found a real bug in the risk-parity solver.
+
+Full write-ups: **[RESEARCH.md](RESEARCH.md)** ·
+**[survivorship study](docs/guide/reports/SP500_STUDY.md)** ·
+**[Quant From Zero — a guide for beginners](docs/guide/quant-from-zero/QUANT_FROM_ZERO.md)**
+([PDF](docs/guide/quant-from-zero/Quant-From-Zero.pdf))
 
 64 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
 AddressSanitizer + UndefinedBehaviorSanitizer on every push. Two further jobs check the engine against
@@ -413,10 +441,16 @@ third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ## Further reading
 
 - **[RESEARCH.md](RESEARCH.md)** - do these strategies beat buy-and-hold out of sample after costs?
-- **[docs/STUDY_GUIDE.md](docs/STUDY_GUIDE.md)** - the concepts behind the engine (look-ahead bias,
-  cost models, Sharpe/Sortino/Calmar, VaR vs CVaR, Cornish-Fisher, GBM and Ito's correction,
-  Cholesky, bootstrapping, Markowitz, Ledoit-Wolf, FISTA and simplex projection, risk parity,
-  walk-forward), each with its formula and where it lives in the code.
+- **[Quant From Zero](docs/guide/quant-from-zero/QUANT_FROM_ZERO.md)**
+  ([PDF](docs/guide/quant-from-zero/Quant-From-Zero.pdf)) - a guide for readers with no finance
+  background: what quant is, how backtests lie, a tour of every module, how to run the project, and
+  eight experiments that take one command each.
+- **[Survivorship study](docs/guide/reports/SP500_STUDY.md)** - the same strategies on the S&P 500 as
+  it actually was, and what hindsight was worth.
+- **[Study guide](docs/guide/study-guide/STUDY_GUIDE.md)** - the concepts behind the engine
+  (look-ahead bias, cost models, Sharpe/Sortino/Calmar, VaR vs CVaR, Cornish-Fisher, GBM and Ito's
+  correction, Cholesky, bootstrapping, Markowitz, Ledoit-Wolf, FISTA and simplex projection, risk
+  parity, walk-forward), each with its formula and where it lives in the code.
 
 ## License
 

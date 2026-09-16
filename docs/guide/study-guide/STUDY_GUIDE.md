@@ -2,7 +2,18 @@
 
 Study notes on the concepts, design decisions and results behind this engine.
 
-Repo: `github.com/Lukey-7/AxiomQuant` · Reference CI run: 34671037291 · 43 tests on 4 platforms.
+Repo: `github.com/Lukey-7/AxiomQuant` · Reference runs: **35057670453** (real prices) and
+**35059578040** (point-in-time S&P 500) · 64 tests on 4 platforms, 9 CI jobs.
+
+**New to all of this?** Read [Quant From Zero](../quant-from-zero/QUANT_FROM_ZERO.md) first — it
+assumes no finance background and walks through the same ideas with runnable experiments. This
+document is the interview-preparation companion: denser, and organised around questions you may be
+asked.
+
+**Numbers in this guide** come from the runs named above. The results on the bundled synthetic data
+(which several sections still quote as a worked example) are labelled as such; every headline figure
+lives in [RESEARCH.md](../../../RESEARCH.md) and
+[SP500_STUDY.md](../reports/SP500_STUDY.md).
 
 ---
 
@@ -347,7 +358,9 @@ just the arithmetic. The regression test asserts the filled quantity is 99 share
 non-negative.
 
 **25. How is it tested and how do you know it's correct?**
-43 tests on Linux/GCC, macOS/Clang, Windows/MSVC and an ASan+UBSan build, every push. The valuable
+64 tests on Linux/GCC, macOS/Clang, Windows/MSVC and an ASan+UBSan build, every push, plus four
+jobs that tests alone cannot cover: the optimizer against cvxpy, performance against NumPy,
+clang-format/clang-tidy, and an 80% coverage floor. The valuable
 ones check against outside truth rather than against the code: the two-asset GMV against its
 closed-form solution, Ledoit-Wolf against an independent NumPy implementation, the new exact
 projection against the bisection it replaced, correlated GBM against the analytic expected terminal
@@ -367,5 +380,42 @@ wealth, historical VaR/CVaR against hand-computed quantiles, and the constrained
 - **Don't oversell.** The honest summary is: solid machinery, synthetic data, no edge found. That is a
   *better* interview story than a fake Sharpe of 2 — and if you claim the latter, the first question
   will be about your fill assumptions.
-- **Know your own numbers.** 1,304 bars, 5 assets, 43 tests, 750 out-of-sample days, IS→OOS decay of
+- **Know your own numbers.** 2,942 bars, 64 tests, 2,375 out-of-sample days, IS→OOS decay of
   1.17, δ = 1.0, costs $67 vs $4,577.
+
+---
+
+## Part 5 — What changed since the first version of this guide
+
+The engine below is the same; the evidence around it is much stronger. If you are asked "how do you
+know your results are real?", these are the answers, newest first.
+
+**Point-in-time universe.** Cross-sectional momentum was tested on five symbols chosen today, and
+again on the S&P 500 as it actually was (771 member symbols since 2015, 605 with usable prices).
++957.7% became +106.6%, Sharpe 0.88 became 0.31, drawdown 38.9% became 75.6%. That difference is
+survivorship bias, measured rather than asserted. See [SP500_STUDY.md](../reports/SP500_STUDY.md).
+
+**Error bars on every conclusion.** A stationary block bootstrap (block length chosen from the data
+by the Politis-White rule) gives the out-of-sample Sharpe of 0.185 a 95% interval of [-0.415, 0.816],
+p = 0.277 — indistinguishable from zero, while buy-and-hold's 0.726 is significant at p = 0.013.
+
+**Deflation for the parameter search.** The best of 41 SMA pairs is judged against what the best of N
+worthless trials would reach by luck; because the 41 pairs are variations of one rule, they count as
+8.1 effectively independent trials rather than 41.
+
+**Cross-validation against an independent solver.** Every optimizer is checked against cvxpy/Clarabel
+and closed-form solutions to 1e-8 on each push. This caught a real bug: risk parity was normalising
+inside its coordinate descent and converging to a portfolio whose risk contributions differed by up
+to 14 percentage points.
+
+**Costs stress-tested.** Every strategy is re-run from 0x to 10x the modelled cost. On the real
+universe, momentum breaks even at 3.7x — its apparent profit depends on the cost model being right
+within a factor of four.
+
+**Benchmarks against a reference implementation.** The Monte Carlo and bootstrap workloads are timed
+against vectorised NumPy doing the same job: 1.4-3.7x faster single-threaded, up to 10.8x on four
+threads. Timings in isolation mean nothing; ratios against a known implementation mean something.
+
+**A useful positive result, finally.** Volatility targeting — sizing one index position at
+`target vol / trailing vol` — matches buy-and-hold's Sharpe (0.69 vs 0.71) with a 13.2% maximum
+drawdown instead of 33.4%. No forecasting: volatility persists, returns do not.

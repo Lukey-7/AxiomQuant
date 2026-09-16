@@ -12,7 +12,7 @@ Every number here comes from CI run
 study*, job *Point-in-time S&P 500*, `ubuntu-latest`, OpenMP on 4 threads, commit `697c4c4`. The
 comparison run on the five hindsight-chosen symbols is
 [35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453), the reference run for
-[RESEARCH.md](../RESEARCH.md).
+[RESEARCH.md](../../../RESEARCH.md).
 
 ---
 
@@ -133,7 +133,7 @@ optimization does with a wide universe, not as an allocation.
   the obvious next test.
 - **Momentum's parameters were never tuned here** (L=60, R=20, Top=2 throughout). A search over them
   on the real universe would need the deflated Sharpe ratio from
-  [RESEARCH.md](../RESEARCH.md) section 4 to stay honest.
+  [RESEARCH.md](../../../RESEARCH.md) section 4 to stay honest.
 
 ---
 

@@ -306,7 +306,7 @@ To reproduce this study or run it on other data, see *Using other data* in the R
 
 - **Survivorship and selection bias.** Five symbols chosen in 2026, four of them the decade's biggest
   winners. This inflates every long-only and momentum result and is the single biggest caveat here.
-  [docs/SP500_STUDY.md](docs/SP500_STUDY.md) now measures exactly this: on a point-in-time S&P 500
+  [docs/guide/reports/SP500_STUDY.md](docs/guide/reports/SP500_STUDY.md) now measures exactly this: on a point-in-time S&P 500
   universe (771 member symbols, 605 with usable history), cross-sectional momentum falls from +957.7%
   to +106.6% and its worst drawdown rises from 38.9% to 75.6%. The single-symbol strategies in this
   note are unaffected, but the momentum row above should be read as the biased number it is.

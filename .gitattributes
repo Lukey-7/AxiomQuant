@@ -1,0 +1,4 @@
+# Keep binary assets byte-exact; line-ending conversion corrupts them.
+*.pdf binary
+*.png binary
+*.jpg binary
