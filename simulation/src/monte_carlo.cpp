@@ -19,7 +19,7 @@ namespace {
 // Describes how run_simulation resampled, for the report header.
 std::string bootstrap_label(double block_length) {
     if (block_length <= 1.0) return "Empirical bootstrap (i.i.d. resampling)";
-    return "Stationary block bootstrap (mean block " + std::to_string(static_cast<int>(block_length + 0.5)) +
+    return "Stationary block bootstrap (mean block " + std::to_string(std::lround(block_length)) +
            " days)";
 }
 
