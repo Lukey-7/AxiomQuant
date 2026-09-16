@@ -1,0 +1,108 @@
+name: S&P 500 study
+
+# Runs the whole pipeline on a point-in-time S&P 500 universe: the symbols that were actually index
+# members on each date, not the ones that are members today. Membership comes from the public
+# fja05680/sp500 record of components and changes; prices come from the usual live provider.
+#
+# Kept separate from CI and from Real data because it downloads several hundred price histories and
+# takes far longer than either.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: First date (YYYY-MM-DD)
+        default: "2015-01-01"
+      benchmark:
+        description: Benchmark and single-name symbol (fetched even if it is not a member)
+        default: SPY
+      max_symbols:
+        description: Cap on the number of member symbols (0 = every member in the window)
+        default: "0"
+
+jobs:
+  sp500:
+    name: Point-in-time S&P 500
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      START: ${{ github.event.inputs.start || '2015-01-01' }}
+      BENCHMARK: ${{ github.event.inputs.benchmark || 'SPY' }}
+      MAX_SYMBOLS: ${{ github.event.inputs.max_symbols || '0' }}
+      MEMBERSHIP_URL: https://raw.githubusercontent.com/fja05680/sp500/master/sp500_ticker_start_end.csv
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+
+      - name: Download the membership record
+        run: |
+          curl -fsSL "$MEMBERSHIP_URL" -o sp500_spells.csv
+          head -3 sp500_spells.csv
+          echo "$(( $(wc -l < sp500_spells.csv) - 1 )) membership spells"
+
+      - name: Select the symbols that were members during the window
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv, datetime as dt, os
+          start = os.environ["START"]
+          today = dt.date.today().isoformat()
+          rows = list(csv.DictReader(open("sp500_spells.csv")))
+          members = sorted({r["ticker"].strip().upper() for r in rows
+                            if (r["start_date"] or "1900-01-01") <= today
+                            and (r["end_date"] or "2100-01-01") >= start})
+          cap = int(os.environ["MAX_SYMBOLS"])
+          if cap > 0:
+              members = members[:cap]
+          open("symbols.txt", "w").write(" ".join(members))
+          print(f"{len(members)} symbols were S&P 500 members at some point since {start}")
+          PY
+
+      - name: Download prices (delisted symbols are expected to fail)
+        shell: bash
+        run: |
+          read -ra SYMBOLS < symbols.txt
+          python3 scripts/fetch_data.py live --out sp500_data --start "$START" --allow-missing \
+            --tickers "${SYMBOLS[@]}" "$BENCHMARK"
+          ls sp500_data | wc -l
+
+      - name: Build the membership calendar for the symbols that have prices
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv, pathlib
+          have = {p.stem.upper() for p in pathlib.Path("sp500_data").glob("*.csv")}
+          rows = [r for r in csv.DictReader(open("sp500_spells.csv"))
+                  if r["ticker"].strip().upper() in have]
+          with open("members.csv", "w", newline="") as out:
+              w = csv.writer(out, lineterminator="\n")
+              w.writerow(["ticker", "start_date", "end_date"])
+              for r in rows:
+                  w.writerow([r["ticker"].strip().upper(), r["start_date"], r["end_date"]])
+          print(f"{len(rows)} spells covering {len({r['ticker'] for r in rows})} symbols with price history")
+          PY
+
+      - name: Run the pipeline on the point-in-time universe
+        run: |
+          mkdir -p sp500-output
+          ./build/bin/axiomquant --data sp500_data --members members.csv --align union \
+            --ticker "$BENCHMARK" --no-db --export-dir sp500-output | tee sp500-output.txt
+
+      - name: Render charts
+        run: python3 scripts/make_charts.py --input sp500-output --output sp500-output/images
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sp500-study
+          path: |
+            sp500-output.txt
+            sp500-output/
+            members.csv
+            symbols.txt
+            sp500_data/

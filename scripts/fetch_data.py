@@ -104,8 +104,12 @@ def write_csv(path: Path, bars: list[Bar]) -> None:
 
 
 def emit(out_dir: Path, universe: dict[str, list[Bar]], requested: list[str] | None,
-         min_rows: int) -> int:
-    """Write every symbol with enough rows; report and fail on the rest."""
+         min_rows: int, allow_missing: bool = False) -> int:
+    """Write every symbol with enough rows; report and fail on the rest.
+
+    With `allow_missing` the run succeeds as long as at least one symbol worked, which is what a
+    point-in-time universe needs: symbols delisted years ago have no downloadable history left.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     failures: list[str] = []
     names = requested if requested else sorted(universe)
@@ -121,16 +125,21 @@ def emit(out_dir: Path, universe: dict[str, list[Bar]], requested: list[str] | N
         write_csv(destination, bars)
         written += 1
         print(f"{name.upper():<8} {len(bars):>6} bars  {bars[0][0]} to {bars[-1][0]}  -> {destination}")
-    return report(failures, written, out_dir)
+    return report(failures, written, out_dir, allow_missing)
 
 
-def report(failures: list[str], written: int, out_dir: Path) -> int:
+def report(failures: list[str], written: int, out_dir: Path, allow_missing: bool = False) -> int:
+    tolerated = allow_missing and written > 0
     if failures:
-        print("\nFailed:", file=sys.stderr)
-        for failure in failures:
+        print("\nSkipped:" if tolerated else "\nFailed:", file=sys.stderr)
+        for failure in failures[:40]:
             print(f"  {failure}", file=sys.stderr)
-        return 1
-    print(f"\nWrote {written} files to {out_dir}/")
+        if len(failures) > 40:
+            print(f"  ... and {len(failures) - 40} more", file=sys.stderr)
+        if not tolerated:
+            return 1
+    suffix = f" ({len(failures)} symbols had no usable history)" if failures else ""
+    print(f"\nWrote {written} files to {out_dir}/{suffix}")
     return 0
 
 
@@ -278,9 +287,10 @@ def command_live(args: argparse.Namespace) -> int:
                 universe[ticker.upper()] = bars
                 break
             errors.append(f"{ticker.upper()} via {provider}: only {len(bars)} usable rows")
-    for error in errors:
-        print(f"note: {error}", file=sys.stderr)
-    return emit(Path(args.out), universe, args.tickers, args.min_rows)
+    if not args.allow_missing:
+        for error in errors:
+            print(f"note: {error}", file=sys.stderr)
+    return emit(Path(args.out), universe, args.tickers, args.min_rows, args.allow_missing)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -406,7 +416,7 @@ def import_paths(inputs: list[str], args: argparse.Namespace) -> int:
         for symbol, bars in found.items():
             if wanted is None or symbol in wanted:
                 universe.setdefault(symbol, []).extend(bars)
-    return emit(Path(args.out), universe, args.tickers, args.min_rows)
+    return emit(Path(args.out), universe, args.tickers, args.min_rows, args.allow_missing)
 
 
 def command_import(args: argparse.Namespace) -> int:
@@ -496,7 +506,7 @@ def command_synthetic(args: argparse.Namespace) -> int:
     end = args.end or dt.date.today().isoformat()
     universe = generate_synthetic(args.tickers, args.start, end, args.seed, args.drift, args.vol,
                                   args.correlation, args.start_price)
-    return emit(Path(args.out), universe, args.tickers, args.min_rows)
+    return emit(Path(args.out), universe, args.tickers, args.min_rows, args.allow_missing)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -511,6 +521,8 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--out", default="real_data", help="output directory (default: real_data)")
         p.add_argument("--min-rows", type=int, default=250,
                        help="fail if a symbol has fewer usable rows than this (default: 250)")
+        p.add_argument("--allow-missing", action="store_true",
+                       help="skip symbols with no usable history instead of failing the run")
         if tickers_required:
             p.add_argument("--tickers", nargs="+", default=DEFAULT_TICKERS,
                            help="symbols (default: SPY AAPL MSFT GOOGL AMZN)")

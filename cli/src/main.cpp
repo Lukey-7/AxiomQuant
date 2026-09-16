@@ -72,6 +72,7 @@ struct Options {
     size_t wf_test{126};
     fs::path members_path;
     bool has_members{false};
+    bool require_all_assets{true};
     fs::path db_path{"axiomquant.db"};
     bool use_db{true};
     bool has_export{false};
@@ -96,6 +97,8 @@ void print_usage(std::ostream& os) {
           "  --bootstrap <n>       Bootstrap resamples for the significance test (default: 10000)\n"
           "  --block <days>        Monte Carlo bootstrap mean block length (default: 1 = i.i.d.)\n"
           "  --members <csv>       Point-in-time index membership (ticker,start_date,end_date)\n"
+          "  --align <mode>        intersection (default) or union: keep dates where only some\n"
+          "                        symbols trade, forward-filling the others\n"
           "  --wf-train <bars>     Walk-forward training window (default: 504)\n"
           "  --wf-test <bars>      Walk-forward test window (default: 126)\n"
           "  --db <path>           SQLite database file (default: axiomquant.db)\n"
@@ -151,6 +154,11 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--members") {
             opt.members_path = value();
             opt.has_members = true;
+        } else if (arg == "--align") {
+            const std::string mode = value();
+            if (mode == "intersection") opt.require_all_assets = true;
+            else if (mode == "union") opt.require_all_assets = false;
+            else throw std::invalid_argument("--align expects intersection or union, got: " + mode);
         } else if (arg == "--wf-train") opt.wf_train = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--wf-test") opt.wf_test = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--db") {
@@ -331,7 +339,7 @@ int run_pipeline(const Options& opt) {
                   << " bars (" << series.dates.front() << " to " << series.dates.back() << ")\n";
         universe.add_asset(symbol, std::move(series));
     }
-    universe.synchronize_timeline(true);
+    universe.synchronize_timeline(opt.require_all_assets);
     if (universe.size() < 60) throw std::runtime_error("need at least 60 aligned bars to run the pipeline");
 
     const auto& tickers = universe.get_tickers();
