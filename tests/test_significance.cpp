@@ -73,7 +73,9 @@ TEST_CASE(TestSignificance_Bootstrap_IsDeterministicPerSeed) {
     EXPECT_EQ(a.strategy.upper, b.strategy.upper);
     EXPECT_EQ(a.strategy.p_value, b.strategy.p_value);
     EXPECT_TRUE(a.strategy.lower != c.strategy.lower || a.strategy.upper != c.strategy.upper);
-    EXPECT_NEAR(a.mean_block_length, std::cbrt(400.0), 1e-12);
+    // The block length now comes from the data (Politis-White), capped at 3 sqrt(n).
+    EXPECT_TRUE(a.mean_block_length >= 1.0 && a.mean_block_length <= 3.0 * std::sqrt(400.0));
+    EXPECT_EQ(a.mean_block_length, b.mean_block_length);
     EXPECT_TRUE(a.strategy.lower <= a.strategy.estimate && a.strategy.estimate <= a.strategy.upper);
     EXPECT_FALSE(a.has_benchmark);
 }
@@ -124,4 +126,66 @@ TEST_CASE(TestSignificance_Bootstrap_RejectsBadInput) {
                  std::invalid_argument);
     cfg.confidence = 1.0;
     EXPECT_THROW((void)quant::analysis::bootstrap_sharpe(r, {}, cfg), std::invalid_argument);
+}
+
+TEST_CASE(TestSignificance_BlockLength_ReflectsPersistence) {
+    // White-ish noise: a deterministic but effectively uncorrelated series.
+    std::vector<double> noise(600);
+    unsigned long long state = 88172645463325252ULL;
+    for (auto& x : noise) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        x = static_cast<double>(state % 20001) / 10000.0 - 1.0;
+    }
+    // AR(1) with phi = 0.9: the same shocks, but each day remembers the last.
+    std::vector<double> persistent(noise.size());
+    double level = 0.0;
+    for (size_t i = 0; i < noise.size(); ++i) {
+        level = 0.9 * level + noise[i];
+        persistent[i] = level;
+    }
+
+    const double noise_block = quant::analysis::politis_white_block_length(noise);
+    const double persistent_block = quant::analysis::politis_white_block_length(persistent);
+    EXPECT_TRUE(noise_block >= 1.0);
+    EXPECT_TRUE(noise_block < 5.0);                      // nothing to preserve: short blocks
+    EXPECT_TRUE(persistent_block > 3.0 * noise_block);   // dependence demands longer ones
+    EXPECT_TRUE(persistent_block <= 3.0 * std::sqrt(static_cast<double>(noise.size())));
+
+    // Too short, or constant, gives no estimate rather than a wrong one.
+    EXPECT_TRUE(std::isnan(quant::analysis::politis_white_block_length({0.1, 0.2, 0.3})));
+    EXPECT_TRUE(std::isnan(quant::analysis::politis_white_block_length(std::vector<double>(200, 0.01))));
+
+    // An explicit block length is still honoured.
+    quant::analysis::BootstrapConfig cfg;
+    cfg.resamples = 200;
+    cfg.mean_block_length = 12.0;
+    EXPECT_NEAR(quant::analysis::bootstrap_sharpe(persistent, {}, cfg).mean_block_length, 12.0, 1e-12);
+}
+
+TEST_CASE(TestSignificance_EffectiveTrials_DiscountsSimilarTrials) {
+    const auto base = reference_series(300);
+    std::vector<double> shifted(base.size()), opposite(base.size());
+    for (size_t i = 0; i < base.size(); ++i) {
+        shifted[i] = base[i] + 0.0001 * static_cast<double>(i % 7);
+        opposite[i] = base[(i * 97 + 13) % base.size()];   // same values, scrambled order
+    }
+
+    EXPECT_NEAR(quant::analysis::effective_trials({base}), 1.0, 1e-12);
+    EXPECT_NEAR(quant::analysis::effective_trials({base, base, base}), 1.0, 1e-6);   // identical trials
+    const double mixed = quant::analysis::effective_trials({base, shifted, opposite});
+    EXPECT_TRUE(mixed > 1.0 && mixed < 3.0);
+    EXPECT_TRUE(quant::analysis::effective_trials({base, opposite}) > 1.5);
+
+    // Fewer effective trials mean a lower luck hurdle, so the deflated Sharpe cannot fall.
+    const std::vector<double> trial_sharpes{0.9, 0.1, -0.3, 0.45, 0.2, -0.05, 0.6, 0.3, 0.0, -0.2};
+    const auto independent =
+        quant::analysis::deflated_sharpe_ratio(reference_series(750), trial_sharpes, 0.02);
+    const auto correlated =
+        quant::analysis::deflated_sharpe_ratio(reference_series(750), trial_sharpes, 0.02, 252.0, 2.0);
+    EXPECT_NEAR(independent.effective_trials, 10.0, 1e-12);
+    EXPECT_NEAR(correlated.effective_trials, 2.0, 1e-12);
+    EXPECT_TRUE(correlated.expected_max_sharpe < independent.expected_max_sharpe);
+    EXPECT_TRUE(correlated.deflated_sharpe > independent.deflated_sharpe);
 }

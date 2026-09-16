@@ -19,7 +19,8 @@ std::vector<std::string> split(const std::string& line) {
     std::vector<std::string> fields;
     std::stringstream ss(line);
     std::string field;
-    while (std::getline(ss, field, ',')) fields.push_back(trim(field));
+    while (std::getline(ss, field, ','))
+        fields.push_back(trim(field));
     return fields;
 }
 
@@ -61,9 +62,9 @@ MembershipCalendar MembershipCalendar::load(const std::filesystem::path& path) {
         if (fields.size() <= widest) continue;
         const std::string& ticker = fields[static_cast<size_t>(ticker_idx)];
         if (ticker.empty()) continue;
-        const std::string end_date =
-            (end_idx >= 0 && fields.size() > static_cast<size_t>(end_idx)) ? fields[static_cast<size_t>(end_idx)]
-                                                                          : std::string{};
+        const std::string end_date = (end_idx >= 0 && fields.size() > static_cast<size_t>(end_idx))
+                                         ? fields[static_cast<size_t>(end_idx)]
+                                         : std::string{};
         calendar.add_spell(ticker, fields[static_cast<size_t>(start_idx)], end_date);
     }
     if (calendar.empty()) {

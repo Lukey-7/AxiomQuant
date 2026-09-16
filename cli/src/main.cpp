@@ -570,10 +570,21 @@ int run_pipeline(const Options& opt) {
         std::vector<double> best_returns;
         (void)analysis::evaluate_window(universe, best_strategy, setup, 0, universe.size(), 0, &best_returns);
         std::vector<double> trial_sharpes;
+        std::vector<std::vector<double>> trial_returns;
         trial_sharpes.reserve(sweep.size());
-        for (const auto& p : sweep)
-            trial_sharpes.push_back(p.performance.sharpe_ratio);
-        const auto deflated = analysis::deflated_sharpe_ratio(best_returns, trial_sharpes, opt.risk_free);
+        trial_returns.reserve(sweep.size());
+        for (const auto& point : sweep) {
+            trial_sharpes.push_back(point.performance.sharpe_ratio);
+            backtest::strategies::SmaCrossoverStrategy trial(ticker, point.fast_period, point.slow_period,
+                                                             0.95);
+            std::vector<double> returns;
+            (void)analysis::evaluate_window(universe, trial, setup, 0, universe.size(), 0, &returns);
+            trial_returns.push_back(std::move(returns));
+        }
+        // The pairs are variations of one rule, so they are far from independent attempts.
+        const double effective = analysis::effective_trials(trial_returns);
+        const auto deflated =
+            analysis::deflated_sharpe_ratio(best_returns, trial_sharpes, opt.risk_free, 252.0, effective);
         std::cout << "\n" << analysis::format_deflated_sharpe_report(deflated);
     }
 
@@ -586,6 +597,13 @@ int run_pipeline(const Options& opt) {
     if (universe.size() >= opt.wf_train + opt.wf_test) {
         wf = analysis::run_sma_walk_forward(universe, ticker, wf_cfg, setup);
         std::cout << analysis::format_walk_forward_report(wf, ticker);
+        const auto wf_sweep = analysis::sweep_walk_forward(universe, ticker, wf_cfg, setup,
+                                                           {{opt.wf_train, opt.wf_test},
+                                                            {opt.wf_train / 2, opt.wf_test / 2},
+                                                            {opt.wf_train * 3 / 2, opt.wf_test * 3 / 2}});
+        if (!wf_sweep.empty()) {
+            std::cout << "\n" << analysis::format_walk_forward_sweep(wf_sweep, ticker);
+        }
         if (wf.oos_returns.size() >= 3) {
             analysis::BootstrapConfig boot_cfg;
             boot_cfg.resamples = opt.bootstrap;

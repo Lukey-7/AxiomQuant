@@ -31,7 +31,8 @@ WindowPerformance evaluate_window(const data::MarketDataUniverse& universe,
                                   size_t begin,
                                   size_t end,
                                   size_t warmup_bars,
-                                  std::vector<double>* window_returns) {
+                                  std::vector<double>* window_returns,
+                                  bool trade_during_warmup) {
     end = std::min(end, universe.size());
     if (begin + 1 >= end) {
         throw std::invalid_argument("evaluate_window: window must contain at least two bars");
@@ -41,7 +42,10 @@ WindowPerformance evaluate_window(const data::MarketDataUniverse& universe,
     const size_t offset = begin - slice_begin;
 
     backtest::EngineConfig engine_cfg = setup.engine;
-    engine_cfg.trading_start_index = offset;
+    // Warm-up bars either prime the indicators silently (flat start) or are traded like any other
+    // bar, in which case the window inherits the position the rule implies. Returns are measured
+    // from `begin` regardless, so warm-up profits never count.
+    engine_cfg.trading_start_index = trade_during_warmup ? 0 : offset;
     backtest::BacktestEngine engine(universe.slice(slice_begin, end), backtest::Portfolio(setup.initial_cash),
                                     backtest::ExecutionModel(setup.execution), engine_cfg);
     const auto result = engine.run(strategy);
@@ -140,7 +144,8 @@ WalkForwardResult run_sma_walk_forward(const data::MarketDataUniverse& universe,
         // 2. Out-of-sample: trade the frozen parameters on data the optimiser never saw.
         std::vector<double> oos, bench;
         backtest::strategies::SmaCrossoverStrategy strategy(ticker, best.fast_period, best.slow_period, 0.95);
-        fold.out_of_sample = evaluate_window(universe, strategy, setup, train_end, test_end, warmup, &oos);
+        fold.out_of_sample = evaluate_window(universe, strategy, setup, train_end, test_end, warmup, &oos,
+                                             config.carry_position);
 
         backtest::strategies::BuyAndHoldStrategy benchmark(ticker, 0.99);
         fold.benchmark = evaluate_window(universe, benchmark, setup, train_end, test_end, 0, &bench);
@@ -211,6 +216,66 @@ std::string format_walk_forward_report(const WalkForwardResult& r, const std::st
            << r.folds.size() << "\n";
     }
     ss << "=========================================================================\n";
+    return ss.str();
+}
+
+std::vector<WalkForwardSummary> sweep_walk_forward(const data::MarketDataUniverse& universe,
+                                                   const std::string& ticker,
+                                                   const WalkForwardConfig& base_config,
+                                                   const BacktestSetup& setup,
+                                                   const std::vector<std::pair<size_t, size_t>>& windows) {
+    std::vector<WalkForwardSummary> summaries;
+    for (const auto& [train_bars, test_bars] : windows) {
+        if (train_bars < 2 || test_bars < 2 || universe.size() < train_bars + test_bars) continue;
+        for (bool carry : {false, true}) {
+            WalkForwardConfig config = base_config;
+            config.train_bars = train_bars;
+            config.test_bars = test_bars;
+            config.carry_position = carry;
+
+            const auto result = run_sma_walk_forward(universe, ticker, config, setup);
+            if (result.folds.empty()) continue;
+
+            WalkForwardSummary summary;
+            summary.train_bars = train_bars;
+            summary.test_bars = test_bars;
+            summary.carry_position = carry;
+            summary.folds = result.folds.size();
+            summary.folds_beating_benchmark = result.folds_beating_benchmark;
+            summary.mean_in_sample_sharpe = result.mean_in_sample_sharpe;
+            summary.mean_out_of_sample_sharpe = result.mean_out_of_sample_sharpe;
+            summary.stitched_strategy = result.stitched_strategy;
+            summary.stitched_benchmark = result.stitched_benchmark;
+            summaries.push_back(summary);
+        }
+    }
+    return summaries;
+}
+
+std::string format_walk_forward_sweep(const std::vector<WalkForwardSummary>& summaries,
+                                      const std::string& ticker) {
+    std::ostringstream ss;
+    ss << "  ROBUSTNESS: the same protocol over other window sizes and both start modes (" << ticker << ")\n";
+    ss << "  " << std::string(88, '-') << "\n";
+    ss << "  " << std::left << std::setw(14) << "Train/test" << std::setw(14) << "Window start" << std::right
+       << std::setw(7) << "Folds" << std::setw(10) << "OOS ret" << std::setw(10) << "B&H ret" << std::setw(11)
+       << "OOS Sharpe" << std::setw(11) << "B&H Sharpe" << std::setw(11) << "Beat B&H"
+       << "\n";
+    ss << "  " << std::string(88, '-') << "\n";
+    ss << std::fixed;
+    for (const auto& s : summaries) {
+        const std::string windows = std::to_string(s.train_bars) + "/" + std::to_string(s.test_bars);
+        const std::string beat = std::to_string(s.folds_beating_benchmark) + "/" + std::to_string(s.folds);
+        ss << "  " << std::left << std::setw(14) << windows << std::setw(14)
+           << (s.carry_position ? "carried" : "flat") << std::right << std::setw(7) << s.folds
+           << std::setprecision(1) << std::setw(9) << (s.stitched_strategy.total_return * 100.0) << "%"
+           << std::setw(9) << (s.stitched_benchmark.total_return * 100.0) << "%" << std::setprecision(2)
+           << std::setw(11) << s.stitched_strategy.sharpe_ratio << std::setw(11)
+           << s.stitched_benchmark.sharpe_ratio << std::setw(11) << beat << "\n";
+    }
+    ss << "  " << std::string(88, '-') << "\n";
+    ss << "  'flat' restarts every test window in cash; 'carried' lets the selected rule keep the\n";
+    ss << "  position it already implied. A conclusion that only holds in one row is not a conclusion.\n";
     return ss.str();
 }
 

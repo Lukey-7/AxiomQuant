@@ -3,6 +3,7 @@
 #include "quant/backtest/engine.hpp"
 #include "quant/data/universe.hpp"
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace quant::analysis {
@@ -34,11 +35,13 @@ struct WindowPerformance {
 /**
  * @brief Backtests `strategy` on timeline window [begin, end).
  *
- * Up to `warmup_bars` of preceding history are replayed first so indicators are initialised, but
- * trading is disabled until `begin`: every window starts flat, and only returns inside the window
- * are measured.
+ * Up to `warmup_bars` of preceding history are replayed first so indicators are initialised. With
+ * `trade_during_warmup` false the window starts flat (orders before `begin` are discarded); with it
+ * true the strategy trades the warm-up too, so the window inherits whatever position its own rule
+ * implies. Either way only returns inside the window are measured.
  *
  * @param window_returns Optional output: daily returns inside the window.
+ * @param trade_during_warmup Carry the signal's position into the window instead of starting flat.
  */
 [[nodiscard]] WindowPerformance evaluate_window(const data::MarketDataUniverse& universe,
                                                 backtest::Strategy& strategy,
@@ -46,7 +49,8 @@ struct WindowPerformance {
                                                 size_t begin,
                                                 size_t end,
                                                 size_t warmup_bars,
-                                                std::vector<double>* window_returns = nullptr);
+                                                std::vector<double>* window_returns = nullptr,
+                                                bool trade_during_warmup = false);
 
 struct SmaSweepPoint {
     size_t fast_period{0};
@@ -72,6 +76,10 @@ struct WalkForwardConfig {
     size_t test_bars{126};    // ~6 months; windows roll forward by this amount
     std::vector<size_t> fast_grid{5, 10, 20, 30, 50};
     std::vector<size_t> slow_grid{50, 100, 150, 200};
+    /// Start each test window flat (the default), or let the chosen rule carry its position in.
+    /// Starting flat is the stricter test of the selection, but it biases a slow crossover towards
+    /// cash: a rule whose entry signal fired before the window began simply never trades inside it.
+    bool carry_position{false};
 };
 
 struct WalkForwardFold {
@@ -113,5 +121,36 @@ struct WalkForwardResult {
 
 [[nodiscard]] std::string format_walk_forward_report(const WalkForwardResult& result,
                                                      const std::string& ticker);
+
+struct WalkForwardSummary {
+    size_t train_bars{0};
+    size_t test_bars{0};
+    bool carry_position{false};
+    size_t folds{0};
+    size_t folds_beating_benchmark{0};
+    double mean_in_sample_sharpe{0.0};
+    double mean_out_of_sample_sharpe{0.0};
+    WindowPerformance stitched_strategy;
+    WindowPerformance stitched_benchmark;
+};
+
+/**
+ * @brief Repeats the walk-forward study over several train/test window sizes and both start modes.
+ *
+ * One (504, 126) split is a single draw from a noisy process, and the conclusion should not depend
+ * on it. Re-running the protocol over other window lengths, and with the position carried into each
+ * window rather than forced flat, separates properties of the strategy from artefacts of the test.
+ *
+ * @param windows (train_bars, test_bars) pairs; pairs too long for the data are skipped.
+ */
+[[nodiscard]] std::vector<WalkForwardSummary> sweep_walk_forward(
+    const data::MarketDataUniverse& universe,
+    const std::string& ticker,
+    const WalkForwardConfig& base_config,
+    const BacktestSetup& setup,
+    const std::vector<std::pair<size_t, size_t>>& windows);
+
+[[nodiscard]] std::string format_walk_forward_sweep(const std::vector<WalkForwardSummary>& summaries,
+                                                    const std::string& ticker);
 
 }   // namespace quant::analysis

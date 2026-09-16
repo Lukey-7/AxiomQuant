@@ -165,3 +165,55 @@ TEST_CASE(TestAnalysis_VolTarget_SizesDownWhenVolatilityRises) {
     EXPECT_TRUE(rough > 0.0);
     EXPECT_TRUE(calm > rough);   // four times the volatility must mean a smaller position
 }
+
+TEST_CASE(TestAnalysis_EvaluateWindow_CarriesPositionWhenWarmupTrades) {
+    // Falls for 150 bars, then rises steadily. The window is [200, 300) with 100 warm-up bars, so the
+    // bullish crossover happens inside the warm-up and no further crossover occurs inside the window.
+    // A flat start therefore never trades there, while carrying the position holds the uptrend it
+    // had already entered.
+    const size_t bars = 320;
+    std::vector<double> close(bars);
+    for (size_t t = 0; t < bars; ++t) {
+        const double x = static_cast<double>(t);
+        close[t] = t < 150 ? 120.0 - 0.10 * x : 105.0 + 0.20 * (x - 150.0);
+    }
+    auto universe = quant::tests::make_universe({{"AAA", close, {}}});
+
+    quant::backtest::strategies::SmaCrossoverStrategy flat_strategy("AAA", 5, 20);
+    const auto flat = quant::analysis::evaluate_window(universe, flat_strategy, frictionless_setup(), 200,
+                                                       300, 100, nullptr, false);
+
+    quant::backtest::strategies::SmaCrossoverStrategy carried_strategy("AAA", 5, 20);
+    const auto carried = quant::analysis::evaluate_window(universe, carried_strategy, frictionless_setup(),
+                                                          200, 300, 100, nullptr, true);
+
+    EXPECT_EQ(flat.trades, 0u);
+    EXPECT_NEAR(flat.total_return, 0.0, 1e-12);
+    EXPECT_TRUE(carried.trades > 0u);
+    EXPECT_TRUE(carried.total_return > 0.05);
+}
+
+TEST_CASE(TestAnalysis_WalkForwardSweep_CoversWindowsAndBothStartModes) {
+    auto universe = trending_universe(400);
+
+    quant::analysis::WalkForwardConfig cfg;
+    cfg.fast_grid = {3, 5};
+    cfg.slow_grid = {10, 20};
+
+    const auto summaries = quant::analysis::sweep_walk_forward(universe, "AAA", cfg, frictionless_setup(),
+                                                               {{120, 40}, {200, 60}, {5000, 1000}});
+
+    // Two rows per feasible window (flat and carried); the 5000/1000 pair does not fit the data.
+    EXPECT_EQ(summaries.size(), 4u);
+    EXPECT_EQ(summaries[0].train_bars, 120u);
+    EXPECT_FALSE(summaries[0].carry_position);
+    EXPECT_TRUE(summaries[1].carry_position);
+    EXPECT_EQ(summaries[2].train_bars, 200u);
+    for (const auto& summary : summaries) {
+        EXPECT_TRUE(summary.folds > 0u);
+        EXPECT_TRUE(summary.folds_beating_benchmark <= summary.folds);
+        EXPECT_TRUE(summary.stitched_strategy.days > 0u);
+    }
+    const auto report = quant::analysis::format_walk_forward_sweep(summaries, "AAA");
+    EXPECT_TRUE(report.find("carried") != std::string::npos);
+}

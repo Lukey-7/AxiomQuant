@@ -33,6 +33,31 @@ namespace quant::analysis {
                                                 double ann_factor = 252.0);
 
 /**
+ * @brief Optimal stationary-bootstrap mean block length (Politis & White, 2004; Patton et al., 2009).
+ *
+ * Chooses the block length that minimises the asymptotic mean squared error of the bootstrap
+ * variance estimate, from a flat-top lag-window estimate of the series' spectrum at zero. Long
+ * blocks preserve dependence but leave fewer effectively independent blocks; this picks the balance
+ * the data implies instead of a rule of thumb.
+ *
+ * @return A block length in [1, n], or NaN when the series is too short or degenerate.
+ */
+[[nodiscard]] double politis_white_block_length(const std::vector<double>& series);
+
+/**
+ * @brief Effective number of independent trials behind a set of correlated trial return series.
+ *
+ *     N_eff = 1 + (N - 1) (1 - rho_bar)
+ *
+ * with rho_bar the mean pairwise correlation. Counting 41 variations of "mostly long the index" as
+ * 41 independent attempts overstates the luck hurdle in the deflated Sharpe ratio; counting them as
+ * one understates it. This interpolates between those extremes.
+ *
+ * @return At least 1.0; the trial count itself when the series are uncorrelated.
+ */
+[[nodiscard]] double effective_trials(const std::vector<std::vector<double>>& trial_returns);
+
+/**
  * @brief Expected maximum of `trials` independent Sharpe estimates whose true value is zero.
  *
  *     E[max SR] ~ sigma * ((1 - gamma) Phi^-1(1 - 1/N) + gamma Phi^-1(1 - 1/(N e)))
@@ -41,11 +66,12 @@ namespace quant::analysis {
  * estimates across trials. The result is in the same units as `trial_sharpe_std`. Returns 0 for a
  * single trial.
  */
-[[nodiscard]] double expected_maximum_sharpe(size_t trials, double trial_sharpe_std);
+[[nodiscard]] double expected_maximum_sharpe(double trials, double trial_sharpe_std);
 
 struct DeflatedSharpe {
     size_t observations{0};
     size_t trials{0};
+    double effective_trials{0.0};       // trials, discounted for how alike they are
     double sharpe{0.0};                 // annualised, of the selected configuration
     double trial_sharpe_std{0.0};       // annualised, across every configuration tried
     double expected_max_sharpe{0.0};    // annualised, best Sharpe expected from luck alone
@@ -63,15 +89,18 @@ struct DeflatedSharpe {
  *
  * @param selected_returns Daily returns of the configuration that was picked.
  * @param trial_sharpes    Annualised Sharpe ratio of every configuration tried, including the winner.
+ * @param effective_trial_count Trials to deflate against, e.g. from effective_trials(); 0 treats
+ *                              every trial as an independent attempt.
  */
 [[nodiscard]] DeflatedSharpe deflated_sharpe_ratio(const std::vector<double>& selected_returns,
                                                    const std::vector<double>& trial_sharpes,
                                                    double risk_free_rate,
-                                                   double ann_factor = 252.0);
+                                                   double ann_factor = 252.0,
+                                                   double effective_trial_count = 0.0);
 
 struct BootstrapConfig {
     size_t resamples{10000};
-    double mean_block_length{0.0};   // stationary bootstrap mean block length; 0 = T^(1/3)
+    double mean_block_length{0.0};   // mean block length; 0 = chosen from the data (Politis-White)
     double confidence{0.95};         // two-sided confidence level of the intervals
     uint64_t seed{42};
     double risk_free_rate{0.02};
