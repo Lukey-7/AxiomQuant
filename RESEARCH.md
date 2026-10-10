@@ -187,7 +187,7 @@ across windows (still with no look-ahead) is a fairer test and is listed under l
 
 ## 4. Is any of this statistically significant?
 
-A difference in Sharpe ratios means little without an error bar. Two tests, both printed by the CLI.
+A difference in Sharpe ratios means little without an error bar. Three tests, all printed by the CLI.
 
 **Out of sample: stationary block bootstrap.** The 2,375 stitched out-of-sample daily returns of the
 strategy and of buy-and-hold are resampled together, 10,000 times, in blocks of random length
@@ -225,6 +225,22 @@ of the time does. It does not ask whether the winner beats *buy-and-hold*, which
 the same period without any search. The grid's spread is small because the 41 pairs are all variations
 of "mostly long the index", so the luck hurdle is low and the test passes. The walk-forward then shows
 that choosing *which* variation, before seeing the data, adds nothing.
+
+**Across strategies: Reality Check and SPA test.** The deflated Sharpe ratio charges for the search
+over SMA parameters; it says nothing about picking the best of the four different tournament
+strategies after seeing how all of them did. White's (2000) Reality Check and Hansen's (2005) test
+for Superior Predictive Ability make that comparison formal. The null hypothesis is that *no*
+strategy has a higher expected daily return than buy-and-hold. The engine forms the matrix of daily
+strategy-minus-benchmark returns and resamples it with one stationary bootstrap, using the same
+blocks for every strategy so that their dependence survives; the mean block length is the average
+Politis-White choice across the columns. The Reality Check compares the largest mean excess return
+with the bootstrap distribution of that maximum, recentred at zero. The SPA test studentizes each
+strategy's excess by Hansen's kernel estimate of its long-run variance, so one volatile strategy
+cannot dominate the maximum, and in its consistent version recentres clearly inferior strategies
+(t-statistic below −√(2 log log T)) at their own mean, so adding bad strategies does not water the
+test down. The CLI prints both p-values, plus the SPA test's lower and upper bounds, after the
+walk-forward significance block (`superior_predictive_ability`, cross-checked against an independent
+NumPy implementation in `scripts/spa_reference.py`).
 
 ---
 
