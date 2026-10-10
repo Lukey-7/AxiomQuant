@@ -64,6 +64,8 @@ analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward; signi
               regimes: point-in-time trend/volatility labels, per-regime metrics, rolling Sharpe
 cli/          axiomquant: 9-stage pipeline, flags, CSV export, cost-of-look-ahead study;
               axiom_optimizer_dump and axiom_bench feed the two cross-check/benchmark CI jobs
+python/       optional pybind11 module axiomquant (-DAXIOM_BUILD_PYTHON=ON): universe, backtest,
+              metrics, walk-forward, significance; unittest suite cross-checks the CLI; quickstart
 tests/        64 tests; test_support.hpp builds synthetic universes and scripted strategies
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
               test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG),
@@ -197,7 +199,9 @@ and the square-root impact model already in `execution_model.hpp` makes it nearl
 *Where:* a new `analysis/capacity.*` mirroring `cost_sensitivity.*` (same shape: sweep a parameter,
 report where profit dies). *Proof:* a capacity curve in the CLI output and a chart.
 
-**7. Python bindings.**
+**7. ~~Python bindings.~~** Done: `python/` (pybind11 module `axiomquant`, built with
+`-DAXIOM_BUILD_PYTHON=ON`), `python/README.md`, `python/examples/quickstart.py`; CI job *Python
+bindings* runs `python/tests`, which checks every tournament strategy against the CLI's exports.
 *What:* expose `MarketDataUniverse`, `BacktestEngine` and the analysis functions through pybind11.
 *Why:* makes the engine usable from a notebook, which is how most quant work is actually done, and
 far easier to demo live than a CLI. *Where:* new `python/` module plus a CMake target; keep it

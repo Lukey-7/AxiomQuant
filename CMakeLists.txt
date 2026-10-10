@@ -12,6 +12,7 @@ option(AXIOM_BUILD_TESTS   "Build the unit test suite"               ON)
 option(AXIOM_BUILD_CLI     "Build the axiomquant command-line tool"  ON)
 option(AXIOM_ENABLE_OPENMP "Parallelize simulations with OpenMP"     ON)
 option(AXIOM_NATIVE        "Tune code generation for the host CPU"   OFF)
+option(AXIOM_BUILD_PYTHON  "Build the axiomquant Python module (pybind11)" OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -22,6 +23,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+# The Python module is a shared library that links the static engine libraries, so they need PIC.
+if(AXIOM_BUILD_PYTHON)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -75,4 +81,9 @@ endif()
 if(AXIOM_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# After tests: the module registers its unittest suite with CTest when tests are enabled.
+if(AXIOM_BUILD_PYTHON)
+    add_subdirectory(python)
 endif()
