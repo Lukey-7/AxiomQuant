@@ -626,6 +626,28 @@ int run_pipeline(const Options& opt) {
                   << ") + test (" << opt.wf_test << ")\n";
     }
 
+    // Every tournament strategy against buy-and-hold at once: picking the best of several rules is
+    // itself a search, and the Reality Check / SPA test charges for it.
+    if (runs.size() >= 2 && runs.front().result.daily_returns.size() >= 3) {
+        const auto& benchmark_run = runs.front();
+        std::vector<std::vector<double>> candidates;
+        std::vector<std::string> candidate_names;
+        for (size_t i = 1; i < runs.size(); ++i) {
+            if (runs[i].result.daily_returns.size() != benchmark_run.result.daily_returns.size()) continue;
+            candidates.push_back(runs[i].result.daily_returns);
+            candidate_names.push_back(runs[i].result.strategy_name);
+        }
+        if (!candidates.empty()) {
+            analysis::SpaConfig spa_cfg;
+            spa_cfg.resamples = opt.bootstrap;
+            spa_cfg.seed = opt.seed;
+            const auto spa = analysis::superior_predictive_ability(
+                candidates, benchmark_run.result.daily_returns, spa_cfg);
+            std::cout << "\n  DOES THE BEST TOURNAMENT STRATEGY BEAT BUY & HOLD, GIVEN THAT ALL WERE TRIED?\n"
+                      << analysis::format_spa_report(spa, candidate_names, "buy & hold");
+        }
+    }
+
     // ----------------------------------------------------------- optimization
     section(7, "Markowitz mean-variance optimization");
     const auto returns_std = universe.get_aligned_returns_matrix();
