@@ -23,9 +23,9 @@ that +32.3% is not statistically distinguishable from zero.
 | Risk | CAGR, Sharpe, Sortino, Calmar, drawdowns, VaR/CVaR three ways | `risk/` |
 | Optimization | Covariance + Ledoit-Wolf, GMV/tangency, constrained QP, frontier, risk parity | `optimization/` |
 | Simulation | Reproducible per-path RNG, i.i.d. and block bootstrap, correlated GBM | `simulation/` |
-| Honesty layer | Walk-forward, cost sweeps, block-bootstrap error bars, deflated Sharpe | `analysis/` |
+| Honesty layer | Walk-forward, cost sweeps, block-bootstrap error bars, deflated Sharpe, Reality Check / SPA, regime split | `analysis/` |
 | Point-in-time data | Index membership calendar so strategies cannot hold tomorrow's winners | `data/` |
-| Verification | 64 tests on 4 platforms, cvxpy cross-check, NumPy benchmark, coverage floor | `.github/` |
+| Verification | 79 tests on 4 platforms, cvxpy cross-check, NumPy benchmark, coverage floor | `.github/` |
 
 ### What it found
 
@@ -37,13 +37,23 @@ that +32.3% is not statistically distinguishable from zero.
 - The one useful positive result: **volatility targeting** matched buy-and-hold's Sharpe (0.69 vs
   0.71) with a **13.2%** maximum drawdown instead of 33.4%.
 - Cross-checking the optimizer against cvxpy found a real bug in the risk-parity solver.
+- Testing all four strategies against buy-and-hold at once (White's Reality Check and Hansen's SPA
+  test), the best one, momentum, **passes** (p = 0.020 and 0.017). That is the survivorship bias above
+  showing through, not an edge: the test charges for trying several strategies, not for choosing the
+  five symbols after the fact.
+- Splitting by market regime shows why the trend rule lags: SMA crossover's Sharpe is 0.78 in rising
+  markets and −0.05 in falling ones, while RSI mean reversion is the mirror image (0.09 rising, 1.23
+  falling).
+
+The SPA and regime figures come from [Real data run 38026970839](https://github.com/Lukey-7/AxiomQuant/actions/runs/38026970839)
+(same five symbols, 2015-01-02 to 2026-10-09); the rest from run 35057670453, quoted below.
 
 Full write-ups: **[RESEARCH.md](RESEARCH.md)** ·
 **[survivorship study](docs/guide/reports/SP500_STUDY.md)** ·
 **[Quant From Zero — a guide for beginners](docs/guide/quant-from-zero/QUANT_FROM_ZERO.md)**
 ([PDF](docs/guide/quant-from-zero/Quant-From-Zero.pdf))
 
-64 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
+79 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
 AddressSanitizer + UndefinedBehaviorSanitizer on every push. Two further jobs check the engine against
 outside references: every optimizer against cvxpy/Clarabel and closed-form solutions to 1e-8, and the
 Monte Carlo and bootstrap workloads against vectorised NumPy implementations of the same tasks.
@@ -386,19 +396,25 @@ checked, not assumed.
 
 ![Throughput relative to vectorised NumPy](docs/images/benchmark.svg)
 
-From CI run [35052074446](https://github.com/Lukey-7/AxiomQuant/actions/runs/35052074446), job
-*Benchmark vs NumPy*, `ubuntu-latest` (4 vCPU), GCC Release with OpenMP, best of 5 runs:
+From CI run [38026764215](https://github.com/Lukey-7/AxiomQuant/actions/runs/38026764215), job
+*Benchmark vs NumPy*, `ubuntu-latest` (4 vCPU), GCC 13.3 Release with OpenMP, NumPy 2.5.3,
+1303 days × 5 symbols, best of 5 runs:
 
 | Workload | Size | NumPy | C++ 1 thread | C++ 2 threads | C++ 4 threads |
 |---|---|---|---|---|---|
-| Monte Carlo, bootstrap | 50,000 paths × 252 days | 245 ms | 66 ms (**3.7×**) | 36 ms (6.7×) | 32 ms (7.8×) |
-| Monte Carlo, correlated GBM portfolio | 50,000 paths × 252 days | 1,810 ms | 1,264 ms (**1.4×**) | 640 ms (2.8×) | 553 ms (3.3×) |
-| Stationary block bootstrap of Sharpe | 10,000 resamples | 386 ms | 117 ms (**3.3×**) | 60 ms (6.5×) | 36 ms (10.8×) |
+| Monte Carlo, bootstrap | 50,000 paths × 252 days | 216 ms | 96 ms (**2.3×**) | 52 ms (4.2×) | 41 ms (5.3×) |
+| Monte Carlo, correlated GBM portfolio | 50,000 paths × 252 days | 1,747 ms | 1,250 ms (**1.4×**) | 635 ms (2.8×) | 492 ms (3.5×) |
+| Stationary block bootstrap of Sharpe | 10,000 resamples | 278 ms | 101 ms (**2.7×**) | 52 ms (5.4×) | 39 ms (7.1×) |
 
-Single-threaded, the engine is 1.4–3.7× faster than NumPy; the gap is smallest on the GBM workload,
+Single-threaded, the engine is 1.4–2.7× faster than NumPy; the gap is smallest on the GBM workload,
 which is dominated by matrix multiplication that NumPy hands to BLAS. Scaling from 1 to 4 threads is
-2.1–3.2×, short of linear on a shared 4-vCPU runner. These are virtual machines, so treat the absolute
+2.3–2.6×, short of linear on a shared 4-vCPU runner. These are virtual machines, so treat the absolute
 numbers as order-of-magnitude figures and the ratios as the point.
+
+The correlated-GBM kernel now runs paths in blocks so each Cholesky element is reused across eight
+paths, with results bit-identical to the path-by-path version. With five assets the Cholesky product is
+a small part of the work, so this table barely moves; the gain shows at hundreds of assets, which this
+benchmark does not run.
 
 ---
 
@@ -459,7 +475,7 @@ optimization/ covariance estimation, Markowitz solvers, constrained QP, frontier
 analysis/     window evaluation, parameter sweeps, walk-forward, regimes
 cli/          axiomquant, the end-to-end pipeline
 python/       optional pybind11 module, its tests and a quickstart example
-tests/        64 unit and regression tests
+tests/        79 unit and regression tests
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ```
 
