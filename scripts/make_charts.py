@@ -202,6 +202,62 @@ def chart_frontier(rows: list[dict], weights_rows: list[dict], out: Path) -> Non
     out.write_text("\n".join(svg), encoding="utf-8")
 
 
+class Skip(Exception):
+    """Raised by a chart whose input exists but holds nothing to draw."""
+
+
+def chart_rolling_sharpe(rows: list[dict], label_rows: list[dict], out: Path) -> None:
+    if not rows:
+        raise Skip("rolling_sharpe.csv has no full window")
+    names = [c for c in rows[0].keys() if c != "date"]
+    series = {n: [float(r[n]) for r in rows] for n in names}
+    # A window spent almost entirely in cash has near-zero volatility and an extreme Sharpe; clip the
+    # axis so one such window does not flatten every other line.
+    limit = 4.0
+    lo = max(-limit, min(min(v) for v in series.values()))
+    hi = min(limit, max(max(v) for v in series.values()))
+    lo, hi = min(lo, 0.0) - 0.25, max(hi, 0.0) + 0.25
+
+    svg = header("Rolling 252-day Sharpe ratio",
+                 f"{len(rows)} windows ending {rows[0]['date']} to {rows[-1]['date']}; "
+                 "shaded = falling trend (trailing 200-day benchmark return < 0)")
+    step = PLOT_W / max(1, len(rows) - 1)
+
+    # Shade the days whose point-in-time trend label was 'falling'.
+    falling = {r["date"] for r in label_rows if r.get("trend") == "falling"}
+    start = None
+    for j, row in enumerate(rows + [{"date": ""}]):
+        inside = row["date"] in falling
+        if inside and start is None:
+            start = j
+        elif not inside and start is not None:
+            x0, x1 = PAD_L + (start - 0.5) * step, PAD_L + (j - 0.5) * step
+            x0, x1 = max(PAD_L, x0), min(PAD_L + PLOT_W, x1)
+            svg.append(f'<rect x="{x0:.1f}" y="{PAD_T}" width="{max(0.5, x1 - x0):.1f}" height="{PLOT_H}" '
+                       f'fill="#fde2e2"/>')
+            start = None
+
+    axis, ys = y_axis(lo, hi, lambda v: f"{v:+.1f}")
+    svg += axis
+    svg.append(f'<line x1="{PAD_L}" y1="{ys(0):.1f}" x2="{PAD_L + PLOT_W}" y2="{ys(0):.1f}" stroke="{MUTED}"/>')
+
+    for i, name in enumerate(names):
+        clipped = [max(lo, min(hi, v)) for v in series[name]]
+        points = " ".join(f"{PAD_L + j * step:.1f},{ys(v):.1f}" for j, v in enumerate(clipped))
+        svg.append(f'<polyline points="{points}" fill="none" stroke="{SERIES[i % len(SERIES)]}" '
+                   f'stroke-width="1.6" stroke-linejoin="round"/>')
+
+    svg.append(text(PAD_L, H - 38, rows[0]["date"], size=12, fill=MUTED))
+    svg.append(text(PAD_L + PLOT_W, H - 38, rows[-1]["date"], size=12, fill=MUTED, anchor="end"))
+    svg += legend([(n.split("(")[0], SERIES[i % len(SERIES)]) for i, n in enumerate(names)])
+    svg.append("</svg>")
+    out.write_text("\n".join(svg), encoding="utf-8")
+
+
+def read_optional_csv(path: Path) -> list[dict]:
+    return read_csv(path) if path.exists() else []
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--input", default="out", help="directory written by --export-dir")
@@ -218,6 +274,9 @@ def main() -> int:
         "efficient_frontier.svg": lambda: chart_frontier(read_csv(src / "efficient_frontier.csv"),
                                                          read_csv(src / "portfolio_weights.csv"),
                                                          dst / "efficient_frontier.svg"),
+        "rolling_sharpe.svg": lambda: chart_rolling_sharpe(read_csv(src / "rolling_sharpe.csv"),
+                                                           read_optional_csv(src / "regime_labels.csv"),
+                                                           dst / "rolling_sharpe.svg"),
     }
 
     written = 0
@@ -226,6 +285,9 @@ def main() -> int:
             build()
         except FileNotFoundError as exc:
             print(f"skipped {name}: {exc.filename} not found")
+            continue
+        except Skip as exc:
+            print(f"skipped {name}: {exc}")
             continue
         print(f"wrote {dst / name}")
         written += 1
