@@ -36,3 +36,8 @@ if(TARGET quant_engine_cli)
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
 endif()
+
+# The reference copy of the Monte Carlo algorithm must round exactly like simulation/src/monte_carlo.cpp.
+if(NOT MSVC)
+    set_source_files_properties(test_monte_carlo.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
