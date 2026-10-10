@@ -61,7 +61,8 @@ simulation/   deterministic per-path RNG (rng.hpp, shared with analysis), bootst
 optimization/ covariance + Ledoit-Wolf, GMV/tangency, constrained QP (FISTA), frontier, risk parity
 analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward; significance: stationary
               block bootstrap of Sharpe (paired), probabilistic and deflated Sharpe ratio
-cli/          axiomquant: 8-stage pipeline, flags, CSV export, cost-of-look-ahead study;
+              regimes: point-in-time trend/volatility labels, per-regime metrics, rolling Sharpe
+cli/          axiomquant: 9-stage pipeline, flags, CSV export, cost-of-look-ahead study;
               axiom_optimizer_dump and axiom_bench feed the two cross-check/benchmark CI jobs
 tests/        64 tests; test_support.hpp builds synthetic universes and scripted strategies
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
@@ -158,7 +159,9 @@ benchmark returns with shared indices and take the max statistic across strategi
 where one strategy has a genuine edge (synthetic drift) rejects, and one where all are noise does
 not; then report the p-value in RESEARCH.md section 4.
 
-**2. Regime breakdown and rolling performance.**
+**2. ~~Regime breakdown and rolling performance.~~** Done: `analysis/regimes.*`, CLI step 7,
+`regime_breakdown.csv` / `rolling_sharpe.csv` / `regime_labels.csv`, `rolling_sharpe.svg`, method in
+RESEARCH.md section 3. Results still need quoting from a named real-data run.
 *What:* split every result by market regime (rising/falling, high/low volatility, e.g. by trailing
 200-day return sign and volatility tercile) and report a rolling 252-day Sharpe rather than one
 number for 11.7 years. *Why:* "no edge on average" may hide "works only when volatility is high",

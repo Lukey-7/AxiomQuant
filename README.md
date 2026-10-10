@@ -121,7 +121,7 @@ python3 scripts/make_charts.py --input out --output docs/images
                  v                                           v
       +-------------------------------+          +--------------------------+
       | quant_simulation              |          | cli: axiomquant          |
-      | bootstrap + correlated GBM    |--------->| 8-stage pipeline, CSV    |
+      | bootstrap + correlated GBM    |--------->| 9-stage pipeline, CSV    |
       | deterministic per-path RNG    |          | export, SQLite, reports  |
       +-------------------------------+          +--------------------------+
 ```
@@ -432,7 +432,7 @@ backtest/     engine, execution/cost model, portfolio, positions, strategies
 risk/         performance metrics, VaR/CVaR, text reports and ASCII equity curves
 simulation/   deterministic RNG, bootstrap and correlated GBM Monte Carlo
 optimization/ covariance estimation, Markowitz solvers, constrained QP, frontier
-analysis/     window evaluation, parameter sweeps, walk-forward
+analysis/     window evaluation, parameter sweeps, walk-forward, regimes
 cli/          axiomquant, the end-to-end pipeline
 tests/        64 unit and regression tests
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
