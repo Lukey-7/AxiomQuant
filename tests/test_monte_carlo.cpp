@@ -4,7 +4,10 @@
 #include "quant/simulation/monte_carlo.hpp"
 #include "quant/simulation/gbm.hpp"
 #include "quant/simulation/bootstrap.hpp"
+#include "quant/simulation/rng.hpp"
+#include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <string>
 
 TEST_CASE(TestSimulation_GBM_Theoretical_Convergence) {
@@ -158,4 +161,175 @@ TEST_CASE(TestMonteCarlo_BlockBootstrap_IsDeterministicAndThreadIndependent) {
     EXPECT_EQ(one.mean_terminal_wealth, four.mean_terminal_wealth);
     EXPECT_EQ(one.p05_wealth, four.p05_wealth);
     EXPECT_EQ(one.p50_max_drawdown, four.p50_max_drawdown);
+}
+
+// --- Correlated GBM: the blocked kernel must reproduce the original path-by-path algorithm ---
+namespace {
+
+struct ReferencePaths {
+    std::vector<double> terminal;
+    std::vector<double> drawdown;
+};
+
+// The original run_gbm_portfolio loop, one path at a time, kept as the bit-exact reference.
+ReferencePaths reference_gbm_paths(const Eigen::VectorXd& expected_returns,
+                                   const Eigen::MatrixXd& cov_matrix,
+                                   const Eigen::VectorXd& weights,
+                                   const quant::simulation::MonteCarloConfig& cfg) {
+    const Eigen::MatrixXd L = Eigen::LLT<Eigen::MatrixXd>(cov_matrix).matrixL();
+    const size_t un = static_cast<size_t>(weights.size());
+    std::vector<double> L_flat(un * un, 0.0), drift(un), w(un);
+    for (size_t i = 0; i < un; ++i) {
+        for (size_t j = 0; j <= i; ++j)
+            L_flat[i * un + j] = L(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j));
+        const auto ii = static_cast<Eigen::Index>(i);
+        drift[i] = expected_returns(ii) / 252.0 - 0.5 * cov_matrix(ii, ii);
+        w[i] = weights(ii);
+    }
+
+    const double S0 = cfg.initial_wealth;
+    ReferencePaths out{std::vector<double>(cfg.num_simulations), std::vector<double>(cfg.num_simulations)};
+    std::vector<double> z(un), rel_price(un);
+    for (size_t p = 0; p < cfg.num_simulations; ++p) {
+        quant::simulation::PathRng rng(cfg.seed, p);
+        std::fill(rel_price.begin(), rel_price.end(), 1.0);
+        double wealth = S0, peak = S0, max_dd = 0.0;
+        for (size_t t = 0; t < cfg.horizon_days; ++t) {
+            for (size_t i = 0; i < un; ++i)
+                z[i] = rng.normal();
+            double port_growth = 0.0;
+            double port_value = 0.0;
+            for (size_t i = 0; i < un; ++i) {
+                double shock = 0.0;
+                const double* Li = &L_flat[i * un];
+                for (size_t j = 0; j <= i; ++j)
+                    shock += Li[j] * z[j];
+                const double gross = std::exp(drift[i] + shock);
+                if (cfg.rebalance_daily) {
+                    port_growth += w[i] * gross;
+                } else {
+                    rel_price[i] *= gross;
+                    port_value += w[i] * rel_price[i];
+                }
+            }
+            wealth = cfg.rebalance_daily ? wealth * port_growth : S0 * port_value;
+            if (wealth < 0.0) wealth = 0.0;
+            if (wealth > peak) {
+                peak = wealth;
+            } else if (peak > 0.0) {
+                max_dd = std::max(max_dd, (peak - wealth) / peak);
+            }
+        }
+        out.terminal[p] = wealth;
+        out.drawdown[p] = max_dd;
+    }
+    std::sort(out.terminal.begin(), out.terminal.end());
+    std::sort(out.drawdown.begin(), out.drawdown.end());
+    return out;
+}
+
+double reference_percentile(const std::vector<double>& sorted, double p) {
+    const double idx = p * static_cast<double>(sorted.size() - 1);
+    const auto lower = static_cast<size_t>(std::floor(idx));
+    const auto upper = static_cast<size_t>(std::ceil(idx));
+    const double frac = idx - static_cast<double>(lower);
+    return sorted[lower] * (1.0 - frac) + sorted[upper] * frac;
+}
+
+// A dense, well-conditioned daily covariance with unequal volatilities and mixed-sign correlations.
+Eigen::MatrixXd make_test_covariance(Eigen::Index n) {
+    Eigen::MatrixXd a(n, n);
+    for (Eigen::Index i = 0; i < n; ++i) {
+        for (Eigen::Index j = 0; j < n; ++j)
+            a(i, j) = std::sin(0.7 * static_cast<double>(i + 1) + 1.3 * static_cast<double>(j * j + 1));
+    }
+    Eigen::MatrixXd cov = a * a.transpose() / static_cast<double>(n);
+    cov.diagonal().array() += 0.05;
+    return cov * (0.04 / 252.0);
+}
+
+void expect_gbm_matches_reference(Eigen::Index n, size_t paths, bool rebalance, size_t threads) {
+    Eigen::VectorXd mu(n), weights(n);
+    for (Eigen::Index i = 0; i < n; ++i) {
+        mu(i) = 0.03 + 0.01 * static_cast<double>(i % 7);
+        weights(i) = 1.0 + 0.25 * static_cast<double>(i % 3);
+    }
+    weights /= weights.sum();
+    const Eigen::MatrixXd cov = make_test_covariance(n);
+
+    quant::simulation::MonteCarloConfig cfg;
+    cfg.num_simulations = paths;
+    cfg.horizon_days = 40;
+    cfg.initial_wealth = 1000.0;
+    cfg.seed = 31337;
+    cfg.rebalance_daily = rebalance;
+    cfg.num_threads = threads;
+    const auto rep = quant::simulation::MonteCarloEngine(cfg).run_gbm_portfolio(mu, cov, weights);
+    const auto ref = reference_gbm_paths(mu, cov, weights, cfg);
+
+    const auto count = static_cast<double>(paths);
+    const double mean = std::accumulate(ref.terminal.begin(), ref.terminal.end(), 0.0) / count;
+    double sum_sq = 0.0;
+    for (double w : ref.terminal)
+        sum_sq += (w - mean) * (w - mean);
+    const double std_dev = paths > 1 ? std::sqrt(sum_sq / (count - 1.0)) : 0.0;
+    const double mean_dd = std::accumulate(ref.drawdown.begin(), ref.drawdown.end(), 0.0) / count;
+
+    // Exact equality: the kernel only regroups work, never the order of floating-point operations.
+    EXPECT_EQ(rep.mean_terminal_wealth, mean);
+    EXPECT_EQ(rep.std_terminal_wealth, std_dev);
+    EXPECT_EQ(rep.mean_max_drawdown, mean_dd);
+    EXPECT_EQ(rep.p01_wealth, reference_percentile(ref.terminal, 0.01));
+    EXPECT_EQ(rep.p05_wealth, reference_percentile(ref.terminal, 0.05));
+    EXPECT_EQ(rep.p25_wealth, reference_percentile(ref.terminal, 0.25));
+    EXPECT_EQ(rep.p50_wealth, reference_percentile(ref.terminal, 0.50));
+    EXPECT_EQ(rep.p75_wealth, reference_percentile(ref.terminal, 0.75));
+    EXPECT_EQ(rep.p95_wealth, reference_percentile(ref.terminal, 0.95));
+    EXPECT_EQ(rep.p99_wealth, reference_percentile(ref.terminal, 0.99));
+    EXPECT_EQ(rep.p50_max_drawdown, reference_percentile(ref.drawdown, 0.50));
+    EXPECT_EQ(rep.p95_max_drawdown, reference_percentile(ref.drawdown, 0.95));
+    EXPECT_EQ(rep.p99_max_drawdown, reference_percentile(ref.drawdown, 0.99));
+}
+
+}   // namespace
+
+TEST_CASE(TestSimulation_CorrelatedGbm_MatchesReferenceAlgorithm) {
+    // Asset and path counts straddle the kernel's row-tile and path-block edges.
+    for (const Eigen::Index n : {1, 2, 3, 5, 13, 37}) {
+        for (const size_t paths : {1, 7, 37}) {
+            expect_gbm_matches_reference(n, paths, false, 1);
+            expect_gbm_matches_reference(n, paths, true, 1);
+        }
+    }
+    expect_gbm_matches_reference(64, 50, false, 4);
+    expect_gbm_matches_reference(64, 50, true, 3);
+}
+
+TEST_CASE(TestSimulation_CorrelatedGbm_IdenticalAcrossThreadCounts) {
+    const Eigen::Index n = 29;
+    const Eigen::VectorXd mu = Eigen::VectorXd::Constant(n, 0.07);
+    const Eigen::VectorXd weights = Eigen::VectorXd::Constant(n, 1.0 / static_cast<double>(n));
+    const Eigen::MatrixXd cov = make_test_covariance(n);
+
+    for (const bool rebalance : {false, true}) {
+        quant::simulation::MonteCarloConfig cfg;
+        cfg.num_simulations = 203;
+        cfg.horizon_days = 50;
+        cfg.seed = 77;
+        cfg.rebalance_daily = rebalance;
+        cfg.num_threads = 1;
+        const auto one = quant::simulation::MonteCarloEngine(cfg).run_gbm_portfolio(mu, cov, weights);
+        for (const size_t threads : {2, 3, 8}) {
+            cfg.num_threads = threads;
+            const auto many = quant::simulation::MonteCarloEngine(cfg).run_gbm_portfolio(mu, cov, weights);
+            EXPECT_EQ(one.mean_terminal_wealth, many.mean_terminal_wealth);
+            EXPECT_EQ(one.std_terminal_wealth, many.std_terminal_wealth);
+            EXPECT_EQ(one.p01_wealth, many.p01_wealth);
+            EXPECT_EQ(one.p50_wealth, many.p50_wealth);
+            EXPECT_EQ(one.p99_wealth, many.p99_wealth);
+            EXPECT_EQ(one.mean_max_drawdown, many.mean_max_drawdown);
+            EXPECT_EQ(one.p99_max_drawdown, many.p99_max_drawdown);
+            EXPECT_EQ(one.cvar_95_terminal, many.cvar_95_terminal);
+        }
+    }
 }
