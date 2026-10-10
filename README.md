@@ -266,6 +266,30 @@ Examples:
 
 ---
 
+## Python
+
+An optional pybind11 module, `axiomquant`, exposes the engine to notebooks and scripts: load a CSV
+directory, run the built-in strategies with the same cost model and fill rules as the CLI, and get
+equity curves as NumPy arrays alongside the risk metrics, walk-forward and significance tests.
+
+```bash
+python -m pip install pybind11 numpy
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIOM_BUILD_PYTHON=ON
+cmake --build build --parallel
+PYTHONPATH=build/python python python/examples/quickstart.py
+```
+
+```python
+import axiomquant as aq
+universe = aq.load_universe("sample_data")
+result = aq.backtest(universe, aq.sma_crossover("SPY", fast=20, slow=50))
+result.equity, result.metrics.sharpe_ratio
+```
+
+See [python/README.md](python/README.md) for Linux, macOS and Windows instructions and the full API.
+
+---
+
 ## Using other data: live, Kaggle, synthetic
 
 The bundled `sample_data/` is synthetic (see [RESEARCH.md](RESEARCH.md) for the evidence). The CLI
@@ -434,6 +458,7 @@ simulation/   deterministic RNG, bootstrap and correlated GBM Monte Carlo
 optimization/ covariance estimation, Markowitz solvers, constrained QP, frontier
 analysis/     window evaluation, parameter sweeps, walk-forward
 cli/          axiomquant, the end-to-end pipeline
+python/       optional pybind11 module, its tests and a quickstart example
 tests/        64 unit and regression tests
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ```
