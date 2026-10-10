@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <numeric>
 #include <numbers>
 #include <sstream>
@@ -35,6 +36,18 @@ double resampled_sharpe(const std::vector<double>& r,
     const double sd = std::sqrt(ss / (n - 1.0));
     if (sd * std::sqrt(ann_factor) <= 1e-9) return 0.0;
     return (mean - daily_rf) / sd * std::sqrt(ann_factor);
+}
+
+// Stationary bootstrap indices (Politis & Romano, 1994): start anywhere, then either continue the
+// current block (wrapping at the end of the sample) or, with probability `restart_probability`,
+// jump to a fresh uniform start.
+void stationary_indices(simulation::PathRng& rng, double restart_probability, std::vector<size_t>& idx) {
+    const size_t n = idx.size();
+    size_t pos = rng.index(n);
+    for (size_t t = 0; t < n; ++t) {
+        if (t > 0) pos = rng.uniform() < restart_probability ? rng.index(n) : (pos + 1) % n;
+        idx[t] = pos;
+    }
 }
 
 // Linear interpolation between order statistics (NumPy's default percentile method).
@@ -269,13 +282,7 @@ BootstrapSharpeResult bootstrap_sharpe(const std::vector<double>& strategy,
     for (int64_t b = 0; b < static_cast<int64_t>(config.resamples); ++b) {
         simulation::PathRng rng(config.seed, static_cast<uint64_t>(b));
         std::vector<size_t> idx(n);
-        size_t pos = rng.index(n);
-        for (size_t t = 0; t < n; ++t) {
-            if (t > 0) {
-                pos = rng.uniform() < restart_probability ? rng.index(n) : (pos + 1) % n;
-            }
-            idx[t] = pos;
-        }
+        stationary_indices(rng, restart_probability, idx);
         const auto slot = static_cast<size_t>(b);
         strategy_draws[slot] = resampled_sharpe(strategy, idx, daily_rf, config.ann_factor);
         if (out.has_benchmark) {
@@ -296,6 +303,192 @@ BootstrapSharpeResult bootstrap_sharpe(const std::vector<double>& strategy,
     out.probabilistic_sharpe =
         probabilistic_sharpe_ratio(strategy, 0.0, config.risk_free_rate, config.ann_factor);
     return out;
+}
+
+SpaResult superior_predictive_ability(const std::vector<std::vector<double>>& strategy_returns,
+                                      const std::vector<double>& benchmark,
+                                      const SpaConfig& config) {
+    const size_t k_count = strategy_returns.size();
+    const size_t n = benchmark.size();
+    if (k_count == 0) throw std::invalid_argument("superior_predictive_ability: need at least one strategy");
+    if (n < 3) throw std::invalid_argument("superior_predictive_ability: need at least three returns");
+    for (const auto& s : strategy_returns) {
+        if (s.size() != n) {
+            throw std::invalid_argument(
+                "superior_predictive_ability: every strategy must match the benchmark length");
+        }
+    }
+    if (config.resamples == 0) {
+        throw std::invalid_argument("superior_predictive_ability: resamples must be positive");
+    }
+
+    const double dn = static_cast<double>(n);
+    const double sqrt_n = std::sqrt(dn);
+
+    // Daily excess returns over the benchmark, one series per strategy.
+    std::vector<std::vector<double>> excess(k_count, std::vector<double>(n));
+    for (size_t k = 0; k < k_count; ++k) {
+        for (size_t t = 0; t < n; ++t)
+            excess[k][t] = strategy_returns[k][t] - benchmark[t];
+    }
+
+    SpaResult out;
+    out.observations = n;
+    out.strategies = k_count;
+    out.resamples = config.resamples;
+
+    // Block length: the average Politis-White choice across the excess series, T^(1/3) as fallback.
+    double block_length = config.mean_block_length;
+    if (!(block_length > 0.0)) {
+        double sum = 0.0;
+        size_t usable = 0;
+        for (const auto& d : excess) {
+            const double b = politis_white_block_length(d);
+            if (std::isfinite(b)) {
+                sum += b;
+                ++usable;
+            }
+        }
+        block_length = usable > 0 ? sum / static_cast<double>(usable) : std::cbrt(dn);
+    }
+    out.mean_block_length = std::clamp(block_length, 1.0, dn);
+    const double q = 1.0 / out.mean_block_length;
+
+    // Means and Hansen's (2005) stationary-bootstrap kernel estimate of the long-run variance:
+    //   omega^2 = gamma_0 + 2 sum_{i>=1} kappa_i gamma_i,
+    //   kappa_i = (n - i)/n (1 - q)^i + i/n (1 - q)^(n - i).
+    out.mean_excess.assign(k_count, 0.0);
+    out.excess_std.assign(k_count, 0.0);
+    out.t_statistics.assign(k_count, 0.0);
+    std::vector<bool> usable(k_count, false);
+    for (size_t k = 0; k < k_count; ++k) {
+        const auto& d = excess[k];
+        double sum = 0.0;
+        for (double v : d)
+            sum += v;
+        const double mean = sum / dn;
+        out.mean_excess[k] = mean;
+
+        const auto [low, high] = std::minmax_element(d.begin(), d.end());
+        if (*high - *low <= 1e-12 * std::max(1.0, std::abs(*high))) continue;   // a copy of the benchmark
+
+        std::vector<double> centred(n);
+        for (size_t t = 0; t < n; ++t)
+            centred[t] = d[t] - mean;
+        double variance = 0.0;
+        for (double c : centred)
+            variance += c * c;
+        variance /= dn;
+        for (size_t lag = 1; lag < n; ++lag) {
+            const double di = static_cast<double>(lag);
+            const double kappa =
+                (dn - di) / dn * std::pow(1.0 - q, di) + di / dn * std::pow(1.0 - q, dn - di);
+            if (kappa == 0.0) continue;
+            double gamma = 0.0;
+            for (size_t t = lag; t < n; ++t)
+                gamma += centred[t] * centred[t - lag];
+            variance += 2.0 * kappa * gamma / dn;
+        }
+        if (!(variance > 0.0)) continue;
+        out.excess_std[k] = std::sqrt(variance);
+        out.t_statistics[k] = sqrt_n * mean / out.excess_std[k];
+        usable[k] = true;
+    }
+
+    out.reality_check_statistic = -std::numeric_limits<double>::infinity();
+    out.spa_statistic = 0.0;
+    bool any_usable = false;
+    for (size_t k = 0; k < k_count; ++k) {
+        out.reality_check_statistic = std::max(out.reality_check_statistic, sqrt_n * out.mean_excess[k]);
+        if (!usable[k]) continue;
+        if (!any_usable || out.t_statistics[k] > out.t_statistics[out.best]) out.best = k;
+        any_usable = true;
+        out.spa_statistic = std::max(out.spa_statistic, out.t_statistics[k]);
+    }
+    if (!any_usable) {
+        out.best = static_cast<size_t>(std::max_element(out.mean_excess.begin(), out.mean_excess.end()) -
+                                       out.mean_excess.begin());
+    }
+
+    // Under the null each bootstrap mean is recentred at mu_k <= 0. The bootstrap mean dbar*_k is
+    // centred at dbar_k, so Z*_k = dbar*_k - dbar_k + mu_k with mu_k = 0 (upper), min(dbar_k, 0)
+    // (lower) or dbar_k when its t-statistic is below -sqrt(2 log log n), else 0 (consistent).
+    const double threshold = -std::sqrt(2.0 * std::log(std::log(dn)));
+    std::vector<double> mu_lower(k_count), mu_consistent(k_count);
+    for (size_t k = 0; k < k_count; ++k) {
+        mu_lower[k] = std::min(out.mean_excess[k], 0.0);
+        mu_consistent[k] = (usable[k] && out.t_statistics[k] < threshold) ? out.mean_excess[k] : 0.0;
+    }
+
+    std::vector<double> rc_draws(config.resamples);
+    std::vector<double> lower_draws(config.resamples), consistent_draws(config.resamples),
+        upper_draws(config.resamples);
+
+    // One index vector per resample, shared by every strategy; each resample owns its generator.
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (int64_t b = 0; b < static_cast<int64_t>(config.resamples); ++b) {
+        simulation::PathRng rng(config.seed, static_cast<uint64_t>(b));
+        std::vector<size_t> idx(n);
+        stationary_indices(rng, q, idx);
+
+        double rc = -std::numeric_limits<double>::infinity();
+        double t_lower = 0.0, t_consistent = 0.0, t_upper = 0.0;
+        for (size_t k = 0; k < k_count; ++k) {
+            const auto& d = excess[k];
+            double sum = 0.0;
+            for (size_t i : idx)
+                sum += d[i];
+            const double centred = sum / dn - out.mean_excess[k];
+            rc = std::max(rc, sqrt_n * centred);
+            if (!usable[k]) continue;
+            const double scale = sqrt_n / out.excess_std[k];
+            t_lower = std::max(t_lower, scale * (centred + mu_lower[k]));
+            t_consistent = std::max(t_consistent, scale * (centred + mu_consistent[k]));
+            t_upper = std::max(t_upper, scale * centred);
+        }
+        const auto slot = static_cast<size_t>(b);
+        rc_draws[slot] = rc;
+        lower_draws[slot] = t_lower;
+        consistent_draws[slot] = t_consistent;
+        upper_draws[slot] = t_upper;
+    }
+
+    const auto p_value = [&config](const std::vector<double>& draws, double observed) {
+        const auto extreme =
+            std::count_if(draws.begin(), draws.end(), [observed](double v) { return v >= observed; });
+        return static_cast<double>(1 + extreme) / static_cast<double>(config.resamples + 1);
+    };
+    out.reality_check_p_value = p_value(rc_draws, out.reality_check_statistic);
+    out.spa_p_lower = p_value(lower_draws, out.spa_statistic);
+    out.spa_p_consistent = p_value(consistent_draws, out.spa_statistic);
+    out.spa_p_upper = p_value(upper_draws, out.spa_statistic);
+    return out;
+}
+
+std::string format_spa_report(const SpaResult& r,
+                              const std::vector<std::string>& names,
+                              const std::string& benchmark_name) {
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(3);
+    ss << "  " << r.strategies << " strategies against " << benchmark_name << ", " << r.observations
+       << " days, " << r.resamples << " resamples, mean block length " << std::setprecision(1)
+       << r.mean_block_length << " days\n";
+    ss << "  " << std::left << std::setw(42) << "Strategy" << std::right << std::setw(18) << "Excess/yr"
+       << std::setw(10) << "t-stat" << "\n";
+    for (size_t k = 0; k < r.strategies; ++k) {
+        const std::string name = k < names.size() ? names[k] : "strategy " + std::to_string(k + 1);
+        ss << "  " << std::left << std::setw(42) << name << std::right << std::setprecision(1)
+           << std::setw(17) << (r.mean_excess[k] * 252.0 * 100.0) << "%" << std::setprecision(2)
+           << std::setw(10) << r.t_statistics[k] << (k == r.best ? "  <- best" : "") << "\n";
+    }
+    ss << std::setprecision(3);
+    ss << "  White's Reality Check:  p = " << r.reality_check_p_value << "   (H0: no strategy beats "
+       << benchmark_name << ")\n";
+    ss << "  Hansen's SPA test:      p = " << r.spa_p_consistent << "   (consistent; lower " << r.spa_p_lower
+       << ", upper " << r.spa_p_upper << ")\n";
+    return ss.str();
 }
 
 std::string format_bootstrap_report(const BootstrapSharpeResult& r) {

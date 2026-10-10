@@ -1,5 +1,6 @@
 #include "test_harness.hpp"
 #include "quant/analysis/significance.hpp"
+#include "quant/simulation/rng.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <vector>
@@ -188,4 +189,149 @@ TEST_CASE(TestSignificance_EffectiveTrials_DiscountsSimilarTrials) {
     EXPECT_NEAR(correlated.effective_trials, 2.0, 1e-12);
     EXPECT_TRUE(correlated.expected_max_sharpe < independent.expected_max_sharpe);
     EXPECT_TRUE(correlated.deflated_sharpe > independent.deflated_sharpe);
+}
+
+namespace {
+
+// Closed-form fixture shared with scripts/spa_reference.py (three strategies and a benchmark).
+void spa_fixture(std::vector<std::vector<double>>& strategies, std::vector<double>& bench, size_t n = 250) {
+    bench.assign(n, 0.0);
+    strategies.assign(3, std::vector<double>(n));
+    for (size_t i = 0; i < n; ++i) {
+        const double t = static_cast<double>(i);
+        bench[i] = 0.0003 + 0.009 * std::sin(0.31 * t) + 0.004 * std::cos(0.017 * t * t);
+        strategies[0][i] = bench[i] + 0.0002 + 0.006 * std::sin(0.9 * t + 1.0);
+        strategies[1][i] = bench[i] - 0.0012 + 0.005 * std::cos(0.45 * t) + 0.003 * std::sin(0.07 * t * t);
+        strategies[2][i] = 0.5 * bench[i] + 0.008 * std::sin(1.7 * t);
+    }
+}
+
+// Benchmark plus `count` strategies that are the benchmark plus independent N(0, 0.004^2) noise;
+// strategy 0 additionally earns `edge` per day.
+void noisy_universe(std::vector<std::vector<double>>& strategies,
+                    std::vector<double>& bench,
+                    size_t count,
+                    double edge,
+                    size_t n = 1000) {
+    quant::simulation::PathRng rng(2024, 0);
+    bench.resize(n);
+    for (auto& b : bench)
+        b = 0.0004 + 0.01 * rng.normal();
+    strategies.assign(count, std::vector<double>(n));
+    for (size_t k = 0; k < count; ++k) {
+        for (size_t t = 0; t < n; ++t)
+            strategies[k][t] = bench[t] + 0.004 * rng.normal() + (k == 0 ? edge : 0.0);
+    }
+}
+
+}   // namespace
+
+TEST_CASE(TestSignificance_Spa_MatchesNumPyReference) {
+    // Reference values from scripts/spa_reference.py (independent NumPy implementation).
+    std::vector<std::vector<double>> strategies;
+    std::vector<double> bench;
+    spa_fixture(strategies, bench);
+    quant::analysis::SpaConfig cfg;
+    cfg.resamples = 500;
+    cfg.mean_block_length = 4.0;
+    cfg.seed = 11;
+    const auto r = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+
+    EXPECT_EQ(r.strategies, 3u);
+    EXPECT_EQ(r.observations, 250u);
+    EXPECT_EQ(r.best, 0u);
+    EXPECT_NEAR(r.mean_excess[0], 0.0002014684484642868, 1e-15);
+    EXPECT_NEAR(r.mean_excess[1], -0.0010461266687637751, 1e-15);
+    EXPECT_NEAR(r.mean_excess[2], -0.00021721998808181423, 1e-15);
+    EXPECT_NEAR(r.excess_std[0], 0.003549237665834228, 1e-12);
+    EXPECT_NEAR(r.excess_std[1], 0.005255307366410653, 1e-12);
+    EXPECT_NEAR(r.excess_std[2], 0.0065472470947935376, 1e-12);
+    EXPECT_NEAR(r.t_statistics[0], 0.8975155143036216, 1e-9);
+    EXPECT_NEAR(r.t_statistics[1], -3.1474305532365996, 1e-9);
+    EXPECT_NEAR(r.t_statistics[2], -0.5245791900838774, 1e-9);
+    EXPECT_NEAR(r.reality_check_statistic, 0.0031854958690369925, 1e-12);
+    EXPECT_NEAR(r.spa_statistic, 0.8975155143036216, 1e-9);
+    EXPECT_NEAR(r.reality_check_p_value, 0.5848303393213573, 1e-12);
+    EXPECT_NEAR(r.spa_p_lower, 0.249500998003992, 1e-12);
+    EXPECT_NEAR(r.spa_p_consistent, 0.32934131736526945, 1e-12);
+    EXPECT_NEAR(r.spa_p_upper, 0.4411177644710579, 1e-12);
+    // Recentring fewer strategies at zero can only make the null distribution easier to beat.
+    EXPECT_TRUE(r.spa_p_lower <= r.spa_p_consistent && r.spa_p_consistent <= r.spa_p_upper);
+}
+
+TEST_CASE(TestSignificance_Spa_RejectsWhenOneStrategyHasAnEdge) {
+    std::vector<std::vector<double>> strategies;
+    std::vector<double> bench;
+    noisy_universe(strategies, bench, 5, 0.0008);   // about 20% a year over the benchmark
+    quant::analysis::SpaConfig cfg;
+    cfg.resamples = 2000;
+    const auto r = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+
+    EXPECT_EQ(r.best, 0u);
+    EXPECT_TRUE(r.t_statistics[0] > 3.0);
+    EXPECT_TRUE(r.reality_check_p_value < 0.01);
+    EXPECT_TRUE(r.spa_p_consistent < 0.01);
+    EXPECT_TRUE(r.spa_p_upper < 0.01);
+}
+
+TEST_CASE(TestSignificance_Spa_DoesNotRejectPureNoise) {
+    std::vector<std::vector<double>> strategies;
+    std::vector<double> bench;
+    noisy_universe(strategies, bench, 5, 0.0);
+    quant::analysis::SpaConfig cfg;
+    cfg.resamples = 2000;
+    const auto r = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+
+    EXPECT_TRUE(r.reality_check_p_value > 0.1);
+    EXPECT_TRUE(r.spa_p_consistent > 0.1);
+    EXPECT_TRUE(r.spa_p_lower <= r.spa_p_consistent && r.spa_p_consistent <= r.spa_p_upper);
+
+    // A strategy that is the benchmark itself has no excess variance: it is ignored, not a crash.
+    strategies.push_back(bench);
+    const auto with_copy = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+    EXPECT_EQ(with_copy.excess_std.back(), 0.0);
+    EXPECT_EQ(with_copy.t_statistics.back(), 0.0);
+    EXPECT_TRUE(with_copy.spa_p_consistent > 0.1);
+}
+
+TEST_CASE(TestSignificance_Spa_IsDeterministicPerSeed) {
+    std::vector<std::vector<double>> strategies;
+    std::vector<double> bench;
+    noisy_universe(strategies, bench, 4, 0.0002, 400);
+    quant::analysis::SpaConfig cfg;
+    cfg.resamples = 500;
+    cfg.seed = 7;
+    const auto a = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+    const auto b = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+    cfg.seed = 8;
+    const auto c = quant::analysis::superior_predictive_ability(strategies, bench, cfg);
+
+    EXPECT_EQ(a.mean_block_length, b.mean_block_length);
+    EXPECT_EQ(a.reality_check_p_value, b.reality_check_p_value);
+    EXPECT_EQ(a.spa_p_lower, b.spa_p_lower);
+    EXPECT_EQ(a.spa_p_consistent, b.spa_p_consistent);
+    EXPECT_EQ(a.spa_p_upper, b.spa_p_upper);
+    // The statistics do not depend on the seed; the bootstrap distribution does.
+    EXPECT_EQ(a.spa_statistic, c.spa_statistic);
+    EXPECT_TRUE(a.reality_check_p_value != c.reality_check_p_value ||
+                a.spa_p_consistent != c.spa_p_consistent || a.spa_p_upper != c.spa_p_upper);
+    EXPECT_TRUE(a.mean_block_length >= 1.0 && a.mean_block_length <= 400.0);
+}
+
+TEST_CASE(TestSignificance_Spa_RejectsBadInput) {
+    std::vector<std::vector<double>> strategies;
+    std::vector<double> bench;
+    spa_fixture(strategies, bench, 50);
+    quant::analysis::SpaConfig cfg;
+    cfg.resamples = 50;
+    EXPECT_THROW((void)quant::analysis::superior_predictive_ability({}, bench, cfg), std::invalid_argument);
+    EXPECT_THROW((void)quant::analysis::superior_predictive_ability({{0.1, 0.2}}, {0.1, 0.2}, cfg),
+                 std::invalid_argument);
+    strategies[1].pop_back();
+    EXPECT_THROW((void)quant::analysis::superior_predictive_ability(strategies, bench, cfg),
+                 std::invalid_argument);
+    strategies[1].push_back(0.0);
+    cfg.resamples = 0;
+    EXPECT_THROW((void)quant::analysis::superior_predictive_ability(strategies, bench, cfg),
+                 std::invalid_argument);
 }

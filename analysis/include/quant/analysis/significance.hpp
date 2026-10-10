@@ -147,6 +147,70 @@ struct BootstrapSharpeResult {
                                                      const std::vector<double>& benchmark,
                                                      const BootstrapConfig& config = BootstrapConfig{});
 
+struct SpaConfig {
+    size_t resamples{10000};
+    double mean_block_length{0.0};   // mean block length; 0 = chosen from the data (Politis-White)
+    uint64_t seed{42};
+};
+
+struct SpaResult {
+    size_t observations{0};
+    size_t strategies{0};
+    size_t resamples{0};
+    double mean_block_length{0.0};
+    std::vector<double> mean_excess;       // per strategy: mean daily return minus the benchmark's
+    std::vector<double> excess_std;        // per strategy: omega_k, long-run std of the daily excess
+    std::vector<double> t_statistics;      // per strategy: sqrt(T) mean_excess / excess_std
+    size_t best{0};                        // strategy with the largest t-statistic
+    double reality_check_statistic{0.0};   // max_k sqrt(T) mean_excess_k (White, 2000)
+    double reality_check_p_value{1.0};
+    double spa_statistic{0.0};      // max(0, max_k t_k) (Hansen, 2005)
+    double spa_p_lower{1.0};        // liberal: every under-performer recentred at its own mean
+    double spa_p_consistent{1.0};   // Hansen's recommended p-value
+    double spa_p_upper{1.0};        // conservative: every strategy recentred at zero
+};
+
+/**
+ * @brief White's (2000) Reality Check and Hansen's (2005) test for Superior Predictive Ability.
+ *
+ * Asks whether the best of several strategies beats a benchmark once the fact that all of them were
+ * tried is taken into account. The null hypothesis is that no strategy has a higher expected daily
+ * return than the benchmark: E[r_k - r_bench] <= 0 for every k.
+ *
+ * The T x K matrix of daily excess returns d_k = r_k - r_bench is resampled jointly with one
+ * stationary bootstrap (Politis & Romano, 1994): every strategy uses the same indices in a given
+ * resample, so the cross-strategy dependence that drives the best-of-K maximum survives.
+ *
+ * - Reality Check: V = max_k sqrt(T) dbar_k against the bootstrap distribution of
+ *   max_k sqrt(T) (dbar*_k - dbar_k).
+ * - SPA: the studentized statistic max(0, max_k sqrt(T) dbar_k / omega_k), with omega_k^2 Hansen's
+ *   stationary-bootstrap kernel estimate of the long-run variance. In the bootstrap, strategies
+ *   whose t-statistic is below -sqrt(2 log log T) stay centred at their own (negative) mean instead
+ *   of zero, so clearly bad strategies cannot dilute the test; this is the consistent p-value. The
+ *   lower p-value keeps every under-performer at its own mean, the upper one recentres every
+ *   strategy at zero (the least-favourable configuration the Reality Check also uses).
+ *
+ * p-values are (1 + #{bootstrap statistic >= observed}) / (B + 1), as in bootstrap_sharpe. Every
+ * resample draws from its own generator seeded from (seed, resample index), so the result is
+ * identical at any thread count. Strategies whose excess return has zero variance (for instance a
+ * copy of the benchmark) are left out of the studentized statistic.
+ *
+ * @param strategy_returns K daily return series, each the length of `benchmark`.
+ * @param benchmark        Daily returns of the benchmark (e.g. buy-and-hold).
+ */
+[[nodiscard]] SpaResult superior_predictive_ability(const std::vector<std::vector<double>>& strategy_returns,
+                                                    const std::vector<double>& benchmark,
+                                                    const SpaConfig& config = SpaConfig{});
+
+/**
+ * @brief Text block for the CLI: one row per strategy plus the Reality Check and SPA p-values.
+ *
+ * @param names Strategy labels in the order passed to superior_predictive_ability.
+ */
+[[nodiscard]] std::string format_spa_report(const SpaResult& result,
+                                            const std::vector<std::string>& names,
+                                            const std::string& benchmark_name);
+
 [[nodiscard]] std::string format_bootstrap_report(const BootstrapSharpeResult& result);
 
 [[nodiscard]] std::string format_deflated_sharpe_report(const DeflatedSharpe& result);
