@@ -183,6 +183,32 @@ The walk-forward design itself deserves scrutiny before blaming the idea complet
 test window flat biases a trend-following rule towards cash; a variant that carries the signal state
 across windows (still with no look-ahead) is a fairer test and is listed under limitations.
 
+### Method: regime split and rolling Sharpe
+
+One Sharpe ratio for the whole sample can hide a strategy that only works in some markets, so the
+CLI (step 7, `analysis/regimes.*`) also splits every tournament strategy's daily returns by market
+regime. Regimes are read from the benchmark ticker and use only data available at each day's close:
+
+- **Trend:** the sign of the trailing 200-day return (rising if positive, falling otherwise).
+- **Volatility:** 21-day realized volatility, annualized, compared with the 1/3 and 2/3 quantiles of
+  every realized volatility seen so far. The cut points are computed on an expanding window, so they
+  are point-in-time too; a day is labelled only after 252 volatility observations exist.
+
+The label at day *t* is applied to the return from *t* to *t*+1, so a regime is always known before
+the return it classifies. Days without enough history are reported as their own *unknown* rows
+rather than dropped, which keeps the split exact: the trend rows and the volatility rows each
+partition the sample, so their day counts add up to the whole and their compounded returns multiply
+back to it. For each regime the CLI reports days, exposure (share of those days ending with a
+position open), compounded and annualized return, Sharpe and the maximum drawdown of the equity
+curve stitched from that regime's days. It then prints a rolling 252-day Sharpe for every strategy,
+and `--export-dir` writes `regime_breakdown.csv`, `rolling_sharpe.csv` and `regime_labels.csv`
+(charted by `scripts/make_charts.py` as `rolling_sharpe.svg`, with falling-trend periods shaded).
+
+Two caveats. Regimes are coarse and overlap with the strategies' own signals (a 200-day trend label
+and a 50-day crossover read the same prices), so a regime difference describes when a rule worked,
+not why. And a rolling window spent mostly in cash has almost no volatility, so its Sharpe can be
+extreme; read the rolling series for its shape, not its minimum.
+
 ---
 
 ## 4. Is any of this statistically significant?

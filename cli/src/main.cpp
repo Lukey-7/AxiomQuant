@@ -23,6 +23,7 @@
 #include "quant/optimization/constrained_qp.hpp"
 #include "quant/optimization/efficient_frontier.hpp"
 #include "quant/analysis/cost_sensitivity.hpp"
+#include "quant/analysis/regimes.hpp"
 #include "quant/analysis/significance.hpp"
 #include "quant/analysis/walk_forward.hpp"
 
@@ -55,7 +56,7 @@ namespace analysis = quant::analysis;
 
 namespace {
 
-constexpr int kTotalSteps = 8;
+constexpr int kTotalSteps = 9;
 
 struct Options {
     fs::path data_dir;
@@ -647,9 +648,27 @@ int run_pipeline(const Options& opt) {
                       << analysis::format_spa_report(spa, candidate_names, "buy & hold");
         }
     }
+    // ---------------------------------------------------------------- regimes
+    section(7, "Regime breakdown and rolling performance");
+    const analysis::RegimeConfig regime_cfg;
+    const auto regime_labels = analysis::classify_regimes(closes, regime_cfg);
+    std::vector<analysis::StrategyRegimeReport> regime_reports;
+    regime_reports.reserve(runs.size());
+    for (const auto& run : runs) {
+        // A return from bar i to i+1 counts as invested when bar i+1 closed with a position open.
+        const auto& curve = run.result.equity_curve;
+        std::vector<bool> invested(run.result.daily_returns.size(), false);
+        for (size_t i = 0; i < invested.size() && i + 1 < curve.size(); ++i) {
+            invested[i] = std::abs(curve[i + 1].positions_value) > 1e-9;
+        }
+        regime_reports.push_back(analysis::analyze_regimes(run.result.strategy_name, run.result.daily_returns,
+                                                           invested, regime_labels, regime_cfg,
+                                                           opt.risk_free));
+    }
+    std::cout << analysis::format_regime_report(regime_labels, regime_reports, regime_cfg, ticker);
 
     // ----------------------------------------------------------- optimization
-    section(7, "Markowitz mean-variance optimization");
+    section(8, "Markowitz mean-variance optimization");
     const auto returns_std = universe.get_aligned_returns_matrix();
     const auto rows = static_cast<Eigen::Index>(returns_std.size());
     const auto cols = static_cast<Eigen::Index>(tickers.size());
@@ -693,7 +712,7 @@ int run_pipeline(const Options& opt) {
     std::cout << optimization::EfficientFrontier::render_ascii_frontier(frontier, gmv_pt, tan_pt, 60, 12);
 
     // ------------------------------------------------------------ monte carlo
-    section(8, "Monte Carlo simulation");
+    section(9, "Monte Carlo simulation");
     simulation::MonteCarloConfig mc_cfg;
     mc_cfg.num_simulations = opt.paths;
     mc_cfg.horizon_days = opt.horizon;
@@ -789,6 +808,45 @@ int run_pipeline(const Options& opt) {
                    << f.in_sample.sharpe_ratio << ',' << f.out_of_sample.sharpe_ratio << ','
                    << f.out_of_sample.total_return << ',' << f.out_of_sample.max_drawdown << ','
                    << f.benchmark.total_return << '\n';
+        }
+
+        auto regime_csv = open_csv(opt.export_dir, "regime_breakdown.csv");
+        regime_csv << "strategy,regime,days,exposure,total_return,annualized_return,sharpe,max_drawdown\n";
+        for (const auto& report : regime_reports) {
+            for (const auto& row : report.regimes) {
+                regime_csv << csv_field(report.strategy_name) << ',' << row.regime << ',' << row.days << ','
+                           << row.exposure << ',' << row.total_return << ',' << row.annualized_return << ','
+                           << row.sharpe_ratio << ',' << row.max_drawdown << '\n';
+            }
+        }
+
+        // Rolling window k covers returns k..k+window-1, i.e. it ends on bar k+window.
+        auto rolling_csv = open_csv(opt.export_dir, "rolling_sharpe.csv");
+        rolling_csv << "date";
+        for (const auto& report : regime_reports)
+            rolling_csv << ',' << csv_field(report.strategy_name);
+        rolling_csv << '\n';
+        const size_t windows = regime_reports.empty() ? 0 : regime_reports.front().rolling_sharpe.size();
+        for (size_t k = 0; k < windows; ++k) {
+            rolling_csv << universe.get_timeline()[k + regime_cfg.rolling_window];
+            for (const auto& report : regime_reports) {
+                rolling_csv << ',' << (k < report.rolling_sharpe.size() ? report.rolling_sharpe[k] : 0.0);
+            }
+            rolling_csv << '\n';
+        }
+
+        auto labels_csv = open_csv(opt.export_dir, "regime_labels.csv");
+        labels_csv << "date,trend,volatility,trailing_return,realized_vol,vol_low_cut,vol_high_cut\n";
+        const auto csv_number = [](double value) {
+            return std::isfinite(value) ? std::to_string(value) : "";
+        };
+        for (size_t t = 0; t < regime_labels.size(); ++t) {
+            labels_csv << universe.get_timeline()[t] << ',' << analysis::to_string(regime_labels.trend[t])
+                       << ',' << analysis::to_string(regime_labels.volatility[t]) << ','
+                       << csv_number(regime_labels.trailing_return[t]) << ','
+                       << csv_number(regime_labels.realized_vol[t]) << ','
+                       << csv_number(regime_labels.low_cut[t]) << ',' << csv_number(regime_labels.high_cut[t])
+                       << '\n';
         }
 
         std::cout << "\nExported CSV results to " << opt.export_dir.string() << "\n";
