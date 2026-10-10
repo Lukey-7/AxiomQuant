@@ -15,6 +15,26 @@ jobs:
       - name: Unit tests (offline)
         run: python3 -m unittest discover -s scripts -p "test_*.py" -v
 
+  python-bindings:
+    name: Python bindings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install pybind11 and NumPy
+        run: python -m pip install --quiet pybind11 numpy
+      - name: Build the module and the CLI
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIOM_BUILD_PYTHON=ON \
+            -DPython_EXECUTABLE="$(which python)"
+          cmake --build build --parallel
+      - name: Python tests (includes the CLI cross-check)
+        run: ctest --test-dir build --output-on-failure -R python_bindings -V
+      - name: Quickstart example
+        run: PYTHONPATH=build/python python python/examples/quickstart.py
+
   benchmark:
     name: Benchmark vs NumPy
     runs-on: ubuntu-latest
