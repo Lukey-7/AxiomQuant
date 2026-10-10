@@ -1,16 +1,17 @@
 #pragma once
 
 #include "quant/analysis/walk_forward.hpp"
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace quant::analysis {
 
 /// Direction of the benchmark's trailing return. Unknown until enough history exists.
-enum class TrendRegime { Unknown, Rising, Falling };
+enum class TrendRegime : std::uint8_t { Unknown, Rising, Falling };
 
 /// Tercile of the benchmark's trailing realized volatility. Unknown until enough history exists.
-enum class VolatilityRegime { Unknown, Low, Mid, High };
+enum class VolatilityRegime : std::uint8_t { Unknown, Low, Mid, High };
 
 [[nodiscard]] const char* to_string(TrendRegime regime);
 [[nodiscard]] const char* to_string(VolatilityRegime regime);
