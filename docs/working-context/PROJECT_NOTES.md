@@ -147,16 +147,12 @@ worked. Nothing here is started.
 
 ### Research credibility
 
-**1. Reality Check / SPA test for strategy selection.**
-*What:* White's (2000) Reality Check and Hansen's (2005) Superior Predictive Ability test — the
-formal way to ask "did the best of the strategies I tried actually beat the benchmark, given that I
-tried them all?" *Why:* the deflated Sharpe ratio handles the parameter sweep; this handles the
-comparison across strategies, which is currently informal. It is the strongest remaining upgrade to
-the main claim. *Where:* `analysis/significance.*` — the stationary bootstrap it needs already
-exists (`bootstrap_sharpe`, `politis_white_block_length`); resample the matrix of strategy-minus-
-benchmark returns with shared indices and take the max statistic across strategies. *Proof:* a test
-where one strategy has a genuine edge (synthetic drift) rejects, and one where all are noise does
-not; then report the p-value in RESEARCH.md section 4.
+**1. ~~Reality Check / SPA test for strategy selection~~** — done: `superior_predictive_ability` and
+`format_spa_report` in `analysis/significance.*` (White 2000 RC + Hansen 2005 SPA, lower/consistent/
+upper p-values, shared-index stationary bootstrap), printed by the CLI after the walk-forward
+significance block for every tournament strategy against buy-and-hold; tests in
+`tests/test_significance.cpp`, pinned against `scripts/spa_reference.py` (NumPy). RESEARCH.md
+section 4 describes the method; the real-data p-value still needs quoting from a named CI run.
 
 **2. Regime breakdown and rolling performance.**
 *What:* split every result by market regime (rising/falling, high/low volatility, e.g. by trailing
