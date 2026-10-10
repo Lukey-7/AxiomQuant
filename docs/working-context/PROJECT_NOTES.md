@@ -146,7 +146,7 @@ gh workflow run "Real data"
 ## Backlog: ten improvements, with enough detail to start cold
 
 Ordered by value. Each entry says what to build, why it matters, where it goes, and how to prove it
-worked. Nothing here is started.
+worked. Items 1, 2, 7 and 8 are done (10 Oct 2026); the rest are not started.
 
 ### Research credibility
 
@@ -210,7 +210,11 @@ strategy and plots the equity curve in ten lines.
 
 ### Engineering
 
-**8. Speed up the correlated-GBM Monte Carlo.**
+**8. ~~Speed up the correlated-GBM Monte Carlo.~~** Done: `run_gbm_portfolio` runs paths in blocks of 8
+with a hand-tiled packed-Cholesky kernel, summing in the original order so results stay bit-identical
+(pinned by `TestSimulation_CorrelatedGbm_MatchesReferenceAlgorithm`). Normal draws and `exp` now
+dominate; a vectorised exp/log would be faster but would break bit-identity. Quote speedups only from a
+CI run. Original entry:
 *What:* on 606 assets it took 296 seconds (169 paths/s) while everything else in the pipeline runs in
 seconds. The inner loop multiplies a Cholesky factor by a vector per day per path with poor memory
 access. *Why:* it is the one clear performance defect, and it is measurable. *Where:*
