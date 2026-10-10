@@ -31,6 +31,51 @@ inline void track_drawdown(double wealth, double& peak, double& max_dd) noexcept
     }
 }
 
+// Paths the correlated-GBM kernel simulates side by side. Every path keeps its own RNG stream and
+// its own order of floating-point operations, so the block size changes speed, never results.
+constexpr size_t kGbmPathBlock = 8;
+// Cholesky rows accumulated together, so each block of shocks loaded from memory feeds several rows.
+constexpr size_t kGbmRowTile = 4;
+
+/**
+ * Correlated shocks for Cholesky rows [i0, i0 + R) over one block of paths:
+ * acc[r][b] = sum_{j <= i0 + r} L(i0 + r, j) * z[j][b], summed in increasing j exactly like the
+ * scalar dot product, so every path's result is bit-identical to computing it on its own.
+ *
+ * @param l_packed Row-packed lower triangle of L (row i starts at i (i + 1) / 2).
+ * @param z        Standard normals, z[j * kGbmPathBlock + b] for asset j and path b.
+ */
+template <size_t R>
+inline void correlate_rows(const double* l_packed,
+                           const double* z,
+                           size_t i0,
+                           double (&acc)[R][kGbmPathBlock]) noexcept {
+    const double* rows[R];
+    for (size_t r = 0; r < R; ++r) {
+        rows[r] = l_packed + (i0 + r) * (i0 + r + 1) / 2;
+        for (size_t b = 0; b < kGbmPathBlock; ++b)
+            acc[r][b] = 0.0;
+    }
+    // Columns every row of the tile shares.
+    for (size_t j = 0; j <= i0; ++j) {
+        const double* zj = z + j * kGbmPathBlock;
+        for (size_t r = 0; r < R; ++r) {
+            const double l = rows[r][j];
+            for (size_t b = 0; b < kGbmPathBlock; ++b)
+                acc[r][b] += l * zj[b];
+        }
+    }
+    // The small triangle at the tile's right edge.
+    for (size_t r = 1; r < R; ++r) {
+        for (size_t j = i0 + 1; j <= i0 + r; ++j) {
+            const double* zj = z + j * kGbmPathBlock;
+            const double l = rows[r][j];
+            for (size_t b = 0; b < kGbmPathBlock; ++b)
+                acc[r][b] += l * zj[b];
+        }
+    }
+}
+
 int resolve_threads(size_t requested) {
 #ifdef _OPENMP
     return requested > 0 ? static_cast<int>(requested) : omp_get_max_threads();
@@ -205,12 +250,13 @@ MonteCarloReport MonteCarloEngine::run_gbm_portfolio(const Eigen::VectorXd& expe
     }
     const Eigen::MatrixXd L = llt.matrixL();
 
-    // Flatten the lower triangle for a branch-free inner loop, and precompute Ito-corrected drifts.
+    // Pack the lower triangle row by row (half the memory traffic of the full square), and
+    // precompute Ito-corrected drifts.
     const size_t un = static_cast<size_t>(n);
-    std::vector<double> L_flat(un * un, 0.0), drift(un), w(un);
+    std::vector<double> l_packed(un * (un + 1) / 2), drift(un), w(un);
     for (size_t i = 0; i < un; ++i) {
         for (size_t j = 0; j <= i; ++j)
-            L_flat[i * un + j] = L(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j));
+            l_packed[i * (i + 1) / 2 + j] = L(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j));
         const auto ii = static_cast<Eigen::Index>(i);
         drift[i] = expected_returns(ii) / 252.0 - 0.5 * cov_matrix(ii, ii);
         w[i] = weights(ii);
@@ -221,49 +267,91 @@ MonteCarloReport MonteCarloEngine::run_gbm_portfolio(const Eigen::VectorXd& expe
     const int threads = resolve_threads(config_.num_threads);
     const uint64_t seed = config_.seed;
     const bool rebalance = config_.rebalance_daily;
+    constexpr size_t B = kGbmPathBlock;
+    const size_t num_blocks = (N + B - 1) / B;
 
     const auto start_time = std::chrono::steady_clock::now();
 
+    // Paths run in blocks of B so the Cholesky product L * [z_1 ... z_B] reuses each element of L
+    // across the whole block instead of streaming L from memory once per path. Each path still
+    // draws from its own (seed, path) stream and sums in the original order, so results are
+    // bit-identical to simulating paths one at a time, at any thread count.
 #ifdef _OPENMP
 #pragma omp parallel num_threads(threads)
 #endif
     {
-        std::vector<double> z(un), rel_price(un);
+        std::vector<double> z(un * B), rel_price(un * B);
+        std::vector<PathRng> rngs;
+        rngs.reserve(B);
+
+        // Folds finished row i of the correlated shocks into each path's portfolio, in asset order.
+        double port_growth[B];   // constant-mix: sum_i w_i * gross_i
+        double port_value[B];    // buy-and-hold: sum_i w_i * P_i(t) / P_i(0)
+        auto fold_row = [&](size_t i, const double (&shock)[B]) {
+            double* rel = &rel_price[i * B];
+            for (size_t b = 0; b < B; ++b) {
+                const double gross = std::exp(drift[i] + shock[b]);
+                if (rebalance) {
+                    port_growth[b] += w[i] * gross;
+                } else {
+                    rel[b] *= gross;
+                    port_value[b] += w[i] * rel[b];
+                }
+            }
+        };
 
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-        for (int64_t p = 0; p < static_cast<int64_t>(N); ++p) {
-            PathRng rng(seed, static_cast<uint64_t>(p));
+        for (int64_t blk = 0; blk < static_cast<int64_t>(num_blocks); ++blk) {
+            const size_t first = static_cast<size_t>(blk) * B;
+            const size_t count = std::min(B, N - first);
+            rngs.clear();
+            for (size_t b = 0; b < count; ++b)
+                rngs.emplace_back(seed, static_cast<uint64_t>(first + b));
+            // Lanes past the last path (final block only) carry zero shocks and are discarded.
+            std::fill(z.begin(), z.end(), 0.0);
             std::fill(rel_price.begin(), rel_price.end(), 1.0);
-            double wealth = S0, peak = S0, max_dd = 0.0;
+            double wealth[B], peak[B], max_dd[B];
+            for (size_t b = 0; b < B; ++b) {
+                wealth[b] = S0;
+                peak[b] = S0;
+                max_dd[b] = 0.0;
+            }
 
             for (size_t t = 0; t < H; ++t) {
-                for (size_t i = 0; i < un; ++i)
-                    z[i] = rng.normal();
-
-                double port_growth = 0.0;   // constant-mix: sum_i w_i * gross_i
-                double port_value = 0.0;    // buy-and-hold: sum_i w_i * P_i(t) / P_i(0)
-                for (size_t i = 0; i < un; ++i) {
-                    double shock = 0.0;
-                    const double* Li = &L_flat[i * un];
-                    for (size_t j = 0; j <= i; ++j)
-                        shock += Li[j] * z[j];
-                    const double gross = std::exp(drift[i] + shock);
-                    if (rebalance) {
-                        port_growth += w[i] * gross;
-                    } else {
-                        rel_price[i] *= gross;
-                        port_value += w[i] * rel_price[i];
-                    }
+                for (size_t b = 0; b < count; ++b) {
+                    for (size_t j = 0; j < un; ++j)
+                        z[j * B + b] = rngs[b].normal();
+                }
+                for (size_t b = 0; b < B; ++b) {
+                    port_growth[b] = 0.0;
+                    port_value[b] = 0.0;
                 }
 
-                wealth = rebalance ? wealth * port_growth : S0 * port_value;
-                if (wealth < 0.0) wealth = 0.0;
-                track_drawdown(wealth, peak, max_dd);
+                size_t i = 0;
+                for (; i + kGbmRowTile <= un; i += kGbmRowTile) {
+                    double acc[kGbmRowTile][B];
+                    correlate_rows(l_packed.data(), z.data(), i, acc);
+                    for (size_t r = 0; r < kGbmRowTile; ++r)
+                        fold_row(i + r, acc[r]);
+                }
+                for (; i < un; ++i) {
+                    double acc[1][B];
+                    correlate_rows(l_packed.data(), z.data(), i, acc);
+                    fold_row(i, acc[0]);
+                }
+
+                for (size_t b = 0; b < count; ++b) {
+                    wealth[b] = rebalance ? wealth[b] * port_growth[b] : S0 * port_value[b];
+                    if (wealth[b] < 0.0) wealth[b] = 0.0;
+                    track_drawdown(wealth[b], peak[b], max_dd[b]);
+                }
             }
-            terminal_wealth[static_cast<size_t>(p)] = wealth;
-            max_drawdowns[static_cast<size_t>(p)] = max_dd;
+            for (size_t b = 0; b < count; ++b) {
+                terminal_wealth[first + b] = wealth[b];
+                max_drawdowns[first + b] = max_dd[b];
+            }
         }
     }
 
