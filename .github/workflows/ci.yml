@@ -122,6 +122,29 @@ jobs:
           name: coverage
           path: coverage/
 
+  fuzz:
+    name: Fuzz the CSV loader
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the libFuzzer target (Clang, ASan + UBSan)
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DAXIOM_ENABLE_OPENMP=OFF -DAXIOM_BUILD_CLI=OFF -DAXIOM_BUILD_FUZZERS=ON
+          cmake --build build --target fuzz_csv_loader --parallel
+      - name: Fuzz for three minutes
+        run: |
+          # The first directory collects new coverage; the others are read-only seeds.
+          mkdir -p fuzz-corpus fuzz-artifacts
+          ./build/bin/fuzz_csv_loader -max_total_time=180 -print_final_stats=1 \
+            -artifact_prefix=fuzz-artifacts/ fuzz-corpus tests/fuzz/corpus sample_data
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-artifacts
+          path: fuzz-artifacts/
+
   optimizer-crosscheck:
     name: Optimizer vs reference solver
     runs-on: ubuntu-latest

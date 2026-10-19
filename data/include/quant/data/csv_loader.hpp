@@ -3,6 +3,7 @@
 #include "quant/data/types.hpp"
 #include <string>
 #include <filesystem>
+#include <istream>
 #include <unordered_map>
 
 namespace quant::data {
@@ -16,6 +17,15 @@ public:
      * @return Populated TimeSeries object.
      */
     static TimeSeries load_file(const std::filesystem::path& filepath, const std::string& ticker);
+
+    /**
+     * @brief Parse OHLCV rows from an already-open stream; load_file is a thin wrapper around it.
+     *
+     * Rows that cannot be parsed, or whose prices are not finite and positive, are skipped. The
+     * returned bars are sorted by timestamp.
+     * @param source Name used in error messages, usually the file path.
+     */
+    static TimeSeries load_stream(std::istream& input, const std::string& ticker, const std::string& source);
 
     /**
      * @brief Load multiple CSV files from a directory. Assumes filename without extension is ticker symbol.
