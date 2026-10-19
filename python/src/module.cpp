@@ -206,11 +206,11 @@ py::dict metrics_to_dict(const risk::PerformanceSummary& s) {
 py::list fills_to_list(const std::vector<backtest::Fill>& fills) {
     py::list out;
     for (const auto& f : fills) {
-        out.append(py::dict("date"_a = f.date, "ticker"_a = f.ticker,
-                            "side"_a = backtest::side_to_string(f.side), "quantity"_a = f.quantity,
-                            "price"_a = f.price, "execution_price"_a = f.execution_price,
-                            "commission"_a = f.commission, "slippage"_a = f.slippage,
-                            "spread_cost"_a = f.spread_cost, "realized_pnl"_a = f.realized_pnl));
+        out.append(py::dict(
+            "date"_a = f.date, "ticker"_a = f.ticker, "side"_a = backtest::side_to_string(f.side),
+            "quantity"_a = f.quantity, "price"_a = f.price, "execution_price"_a = f.execution_price,
+            "commission"_a = f.commission, "slippage"_a = f.slippage, "spread_cost"_a = f.spread_cost,
+            "participation"_a = f.participation, "realized_pnl"_a = f.realized_pnl));
     }
     return out;
 }
@@ -288,7 +288,7 @@ PYBIND11_MODULE(axiomquant, m) {
         "market impact. Defaults match the CLI.")
         .def(py::init([](double per_share_commission, double min_commission, double percentage_commission,
                          double fixed_slippage_bps, double spread_bps, double market_impact_factor,
-                         bool enable_market_impact) {
+                         bool enable_market_impact, double max_participation, double short_borrow_rate) {
                  backtest::ExecutionConfig c;
                  c.per_share_commission = per_share_commission;
                  c.min_commission = min_commission;
@@ -297,11 +297,17 @@ PYBIND11_MODULE(axiomquant, m) {
                  c.spread_bps = spread_bps;
                  c.market_impact_factor = market_impact_factor;
                  c.enable_market_impact = enable_market_impact;
+                 if (max_participation < 0.0 || max_participation > 1.0)
+                     throw py::value_error("max_participation must be in [0, 1]");
+                 if (short_borrow_rate < 0.0) throw py::value_error("short_borrow_rate must be non-negative");
+                 c.max_participation = max_participation;
+                 c.short_borrow_rate = short_borrow_rate;
                  return c;
              }),
              py::kw_only(), "per_share_commission"_a = 0.005, "min_commission"_a = 1.0,
              "percentage_commission"_a = 0.0001, "fixed_slippage_bps"_a = 2.0, "spread_bps"_a = 3.0,
-             "market_impact_factor"_a = 0.1, "enable_market_impact"_a = true)
+             "market_impact_factor"_a = 0.1, "enable_market_impact"_a = true, "max_participation"_a = 0.0,
+             "short_borrow_rate"_a = 0.0)
         .def_static(
             "free",
             []() {
@@ -322,6 +328,11 @@ PYBIND11_MODULE(axiomquant, m) {
         .def_readwrite("spread_bps", &backtest::ExecutionConfig::spread_bps)
         .def_readwrite("market_impact_factor", &backtest::ExecutionConfig::market_impact_factor)
         .def_readwrite("enable_market_impact", &backtest::ExecutionConfig::enable_market_impact)
+        .def_readwrite("max_participation", &backtest::ExecutionConfig::max_participation,
+                       "Largest share of a bar's volume one order may take (0 = no cap); the rest is "
+                       "carried to the next bar.")
+        .def_readwrite("short_borrow_rate", &backtest::ExecutionConfig::short_borrow_rate,
+                       "Annual fee on the market value of short positions.")
         .def("__repr__", [](const backtest::ExecutionConfig& c) {
             return "CostModel(per_share_commission=" + std::to_string(c.per_share_commission) +
                    ", min_commission=" + std::to_string(c.min_commission) +
@@ -329,7 +340,9 @@ PYBIND11_MODULE(axiomquant, m) {
                    ", fixed_slippage_bps=" + std::to_string(c.fixed_slippage_bps) +
                    ", spread_bps=" + std::to_string(c.spread_bps) +
                    ", market_impact_factor=" + std::to_string(c.market_impact_factor) +
-                   ", enable_market_impact=" + (c.enable_market_impact ? "True" : "False") + ")";
+                   ", enable_market_impact=" + (c.enable_market_impact ? "True" : "False") +
+                   ", max_participation=" + std::to_string(c.max_participation) +
+                   ", short_borrow_rate=" + std::to_string(c.short_borrow_rate) + ")";
         });
 
     // ------------------------------------------------------------------ strategies
@@ -453,6 +466,12 @@ PYBIND11_MODULE(axiomquant, m) {
         .def_property_readonly(
             "num_fills", [](const BacktestRun& r) { return r.result.total_trades; },
             "Number of executed fills.")
+        .def_property_readonly(
+            "capped_fills", [](const BacktestRun& r) { return r.result.capped_fills; },
+            "Fills cut short by the CostModel's max_participation cap.")
+        .def_property_readonly(
+            "borrow_cost", [](const BacktestRun& r) { return r.result.total_borrow_cost; },
+            "Total fee paid on short positions.")
         .def_property_readonly(
             "equity", [](const BacktestRun& r) { return to_array(r.equity()); },
             "Portfolio equity at each bar's close (NumPy array).")

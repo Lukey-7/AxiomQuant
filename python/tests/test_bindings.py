@@ -125,6 +125,19 @@ class BacktestTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             aq.sma_crossover("SPY", fast=50, slow=20)
 
+    def test_participation_cap_splits_large_orders(self):
+        spec = aq.buy_and_hold("SPY")
+        # $1B into one name at 1% of the bar's volume cannot be bought in a single day.
+        capped = aq.backtest(self.universe, spec, capital=1e9, costs=aq.CostModel(max_participation=0.01))
+        uncapped = aq.backtest(self.universe, spec, capital=1e9)
+        self.assertEqual(uncapped.capped_fills, 0)
+        self.assertGreater(capped.capped_fills, 0)
+        self.assertGreater(capped.num_fills, uncapped.num_fills)
+        self.assertTrue(all(f["participation"] <= 0.01 + 1e-12 for f in capped.fills))
+        self.assertEqual(capped.borrow_cost, 0.0)  # long only
+        with self.assertRaises(ValueError):
+            aq.CostModel(max_participation=1.5)
+
 
 class AnalysisTest(unittest.TestCase):
     @classmethod

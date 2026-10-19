@@ -78,8 +78,8 @@ containing that path into your environment's `site-packages`).
 | --- | --- |
 | `load_universe(dir, align="intersection", tickers=None)` | `Universe`: `.tickers`, `.dates`, `len()`, `.closes(t)`, `.close_matrix()`, `.returns_matrix()`, `.slice(b, e)` |
 | `buy_and_hold(t)`, `sma_crossover(t, fast, slow)`, `rsi_mean_reversion(t, period, oversold, overbought)`, `momentum(lookback, rebalance, top_k, members=None)`, `vol_target(t, target_volatility, window)` | `Strategy`, a reusable recipe; each backtest builds a fresh instance |
-| `CostModel(per_share_commission=0.005, min_commission=1.0, percentage_commission=0.0001, fixed_slippage_bps=2.0, spread_bps=3.0, market_impact_factor=0.1, enable_market_impact=True)`, `CostModel.free()` | transaction costs; the defaults are the CLI's |
-| `backtest(universe, strategy, *, capital, costs, fill="open", risk_free=0.02)` | `BacktestResult`: `.equity`, `.returns`, `.drawdown` (NumPy), `.dates`, `.fills` (list of dicts), `.metrics`, `.report()` |
+| `CostModel(per_share_commission=0.005, min_commission=1.0, percentage_commission=0.0001, fixed_slippage_bps=2.0, spread_bps=3.0, market_impact_factor=0.1, enable_market_impact=True, max_participation=0.0, short_borrow_rate=0.0)`, `CostModel.free()` | transaction costs; the defaults are the CLI's. `max_participation` caps each order at that share of the bar's volume and carries the rest |
+| `backtest(universe, strategy, *, capital, costs, fill="open", risk_free=0.02)` | `BacktestResult`: `.equity`, `.returns`, `.drawdown` (NumPy), `.dates`, `.fills` (list of dicts), `.capped_fills`, `.borrow_cost`, `.metrics`, `.report()` |
 | `sharpe_ratio`, `sortino_ratio`, `annualized_volatility`, `max_drawdown` | floats, from returns or an equity curve |
 | `sma_sweep(universe, t, fast_grid, slow_grid)` | `SweepPoint`s, best Sharpe first |
 | `walk_forward(universe, t, *, train_bars=504, test_bars=126, carry_position=False, ...)` | `WalkForwardResult`: `.folds`, `.oos_returns`, `.benchmark_returns`, `.strategy`, `.benchmark` |

@@ -16,7 +16,8 @@ backtest::ExecutionConfig scale_costs(const backtest::ExecutionConfig& base, dou
     scaled.fixed_slippage_bps *= multiplier;
     scaled.spread_bps *= multiplier;
     scaled.market_impact_factor *= multiplier;
-    return scaled;
+    scaled.short_borrow_rate *= multiplier;
+    return scaled;   // max_participation is a liquidity limit, not a price, so it is left alone
 }
 
 std::vector<CostSensitivityRow> sweep_costs(const data::MarketDataUniverse& universe,
