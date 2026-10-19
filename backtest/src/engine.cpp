@@ -17,7 +17,8 @@ void BacktestEngine::execute_orders(std::vector<Order>& orders,
                                     const quant::data::MarketSnapshot& snapshot,
                                     bool fill_at_open,
                                     Strategy& strategy,
-                                    BacktestResult& result) {
+                                    BacktestResult& result,
+                                    std::vector<Order>& remainders) {
     // Liquidity first: sells release cash that subsequent buys in the same batch can use.
     std::stable_sort(orders.begin(), orders.end(), [](const Order& a, const Order& b) {
         return a.side == OrderSide::SELL && b.side == OrderSide::BUY;
@@ -36,11 +37,26 @@ void BacktestEngine::execute_orders(std::vector<Order>& orders,
             continue;
         }
 
-        order.order_id = next_order_id_++;
+        if (order.order_id == 0) order.order_id = next_order_id_++;   // remainders keep their id
         order.date = bar.date;
         order.timestamp = bar.timestamp;
 
+        // Liquidity: take at most the allowed share of this bar's volume and carry the rest.
+        const double fillable = execution_model_.fillable_quantity(order, bar);
+        Order remainder;
+        const bool capped = fillable < order.quantity;
+        if (capped) {
+            remainder = order;
+            remainder.quantity = order.quantity - fillable;
+            order.quantity = fillable;
+        }
+        if (order.quantity <= 0.0) {   // the bar is too thin to fill even one share
+            if (capped) remainders.push_back(remainder);
+            continue;
+        }
+
         Fill fill = execution_model_.execute_order(order, bar, reference_price);
+        bool cash_limited = false;
 
         if (fill.side == OrderSide::BUY) {
             const double cash = portfolio_.get_cash();
@@ -64,6 +80,7 @@ void BacktestEngine::execute_orders(std::vector<Order>& orders,
                     ++result.rejected_orders;
                     continue;
                 }
+                cash_limited = true;
             }
         }
 
@@ -74,7 +91,29 @@ void BacktestEngine::execute_orders(std::vector<Order>& orders,
         result.total_slippage_cost += fill.slippage * fill.quantity;
         result.total_spread_cost += fill.spread_cost;
 
+        // A buy the account could not afford in full has nothing left to carry: the shortfall is
+        // cash, not liquidity, and the next bar would only downsize it again.
+        if (capped) {
+            ++result.capped_fills;
+            if (!cash_limited) remainders.push_back(remainder);
+        }
+
         strategy.on_order_fill(portfolio_.get_trade_history().back());
+    }
+}
+
+void BacktestEngine::accrue_borrow_cost(const quant::data::MarketSnapshot& snapshot, BacktestResult& result) {
+    const double daily_rate = execution_model_.get_config().short_borrow_rate / 252.0;
+    if (!(daily_rate > 0.0)) return;
+    double fee = 0.0;
+    for (const auto& [ticker, position] : portfolio_.get_positions()) {
+        if (position.is_short() && snapshot.has_ticker(ticker)) {
+            fee += -position.quantity * snapshot.get_bar(ticker).close * daily_rate;
+        }
+    }
+    if (fee > 0.0) {
+        portfolio_.charge(fee);
+        result.total_borrow_cost += fee;
     }
 }
 
@@ -90,13 +129,14 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
 
     std::vector<Order> queued;       // Orders waiting for the next bar's open
     std::vector<Order> new_orders;   // Orders emitted on the current bar
+    std::vector<Order> remainders;   // Unfilled shares of volume-capped orders
 
     for (size_t t = 0; t < total_steps; ++t) {
         const auto& snapshot = universe_.get_snapshot(t);
 
         // 1. Orders generated from information up to bar t-1 execute at bar t's open.
         if (next_bar && !queued.empty()) {
-            execute_orders(queued, snapshot, /*fill_at_open=*/true, strategy, res);
+            execute_orders(queued, snapshot, /*fill_at_open=*/true, strategy, res, remainders);
             queued.clear();
         }
 
@@ -107,13 +147,26 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
             new_orders.clear();   // warm-up: the strategy observes data but may not trade yet
         }
 
+        // A new order for a ticker supersedes its carried remainder: the strategy sized it from the
+        // position it actually holds, so keeping both would trade the unfilled shares twice.
+        const auto superseded = std::remove_if(remainders.begin(), remainders.end(), [&](const Order& r) {
+            return std::any_of(new_orders.begin(), new_orders.end(),
+                               [&r](const Order& o) { return o.ticker == r.ticker; });
+        });
+        res.cancelled_remainders += static_cast<size_t>(std::distance(superseded, remainders.end()));
+        remainders.erase(superseded, remainders.end());
+
+        std::vector<Order> batch = std::move(remainders);
+        remainders.clear();
+        batch.insert(batch.end(), new_orders.begin(), new_orders.end());
         if (next_bar) {
-            queued.insert(queued.end(), new_orders.begin(), new_orders.end());
+            queued.insert(queued.end(), batch.begin(), batch.end());
         } else {
-            execute_orders(new_orders, snapshot, /*fill_at_open=*/false, strategy, res);
+            execute_orders(batch, snapshot, /*fill_at_open=*/false, strategy, res, remainders);
         }
 
-        // 3. Mark to market at the close of bar t.
+        // 3. Mark to market at the close of bar t, after charging the day's borrow on shorts.
+        accrue_borrow_cost(snapshot, res);
         portfolio_.mark_to_market(snapshot);
     }
 
@@ -132,7 +185,7 @@ BacktestResult BacktestEngine::run(Strategy& strategy) {
         (res.initial_cash > 0.0) ? ((res.final_equity - res.initial_cash) / res.initial_cash) : 0.0;
     res.total_bars = total_steps;
     res.total_trades = portfolio_.get_trade_history().size();
-    res.unfilled_orders = queued.size();
+    res.unfilled_orders = queued.size() + remainders.size();
     res.trades = portfolio_.get_trade_history();
     res.equity_curve = portfolio_.get_equity_curve();
     res.daily_returns = portfolio_.get_daily_returns();

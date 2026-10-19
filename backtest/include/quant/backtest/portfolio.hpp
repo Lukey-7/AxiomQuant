@@ -24,6 +24,11 @@ public:
     double process_fill(const Fill& fill);
 
     /**
+     * @brief Deducts a fee that is not tied to a fill (e.g. short borrow) from cash.
+     */
+    void charge(double amount) noexcept { cash_ -= amount; }
+
+    /**
      * @brief Mark all positions to market using current snapshot prices and record equity history.
      */
     void mark_to_market(const quant::data::MarketSnapshot& snapshot);

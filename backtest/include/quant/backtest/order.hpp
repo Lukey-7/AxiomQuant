@@ -14,7 +14,7 @@ enum class OrderSide : std::uint8_t { BUY, SELL };
 }
 
 struct Order {
-    int64_t order_id{0};
+    int64_t order_id{0};   // Assigned by the engine on first execution; kept by a carried remainder
     std::string ticker;
     OrderSide side{OrderSide::BUY};
     OrderType type{OrderType::MARKET};
@@ -35,6 +35,7 @@ struct Fill {
     double commission{0.0};
     double slippage{0.0};
     double spread_cost{0.0};
+    double participation{0.0};     // quantity / bar volume (0 when the bar reports no volume)
     double realized_pnl{0.0};      // Net PnL realized by this fill (populated by Portfolio)
     bool closes_position{false};   // True if this fill reduced / closed an existing position
     std::string date;

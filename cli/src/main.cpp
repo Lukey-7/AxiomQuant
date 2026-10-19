@@ -22,6 +22,7 @@
 #include "quant/optimization/unconstrained.hpp"
 #include "quant/optimization/constrained_qp.hpp"
 #include "quant/optimization/efficient_frontier.hpp"
+#include "quant/analysis/capacity.hpp"
 #include "quant/analysis/cost_sensitivity.hpp"
 #include "quant/analysis/regimes.hpp"
 #include "quant/analysis/significance.hpp"
@@ -64,6 +65,8 @@ struct Options {
     double capital{100000.0};
     double risk_free{0.02};
     double max_weight{0.40};
+    double max_participation{0.0};
+    double borrow_rate{0.0};
     size_t paths{50000};
     size_t horizon{252};
     uint64_t seed{42};
@@ -92,6 +95,9 @@ void print_usage(std::ostream& os) {
           "  --rf <rate>           Annual risk-free rate used in Sharpe (default: 0.02)\n"
           "  --fill <open|close>   Fill on the next bar open (default) or the signal bar close\n"
           "  --max-weight <w>      Per-asset cap for the constrained optimizer (default: 0.40)\n"
+          "  --max-participation <f>  Cap each order at this share of the bar's volume and carry\n"
+          "                        the rest to the next bar (default: 0 = no cap)\n"
+          "  --borrow-rate <rate>  Annual fee on short positions (default: 0)\n"
           "  --paths <n>           Monte Carlo paths (default: 50000)\n"
           "  --horizon <days>      Monte Carlo horizon in trading days (default: 252)\n"
           "  --seed <n>            Monte Carlo and bootstrap seed (default: 42)\n"
@@ -147,6 +153,8 @@ Options parse_args(int argc, char* argv[]) {
         else if (arg == "--capital") opt.capital = parse_double(arg, value());
         else if (arg == "--rf") opt.risk_free = parse_double(arg, value());
         else if (arg == "--max-weight") opt.max_weight = parse_double(arg, value());
+        else if (arg == "--max-participation") opt.max_participation = parse_double(arg, value());
+        else if (arg == "--borrow-rate") opt.borrow_rate = parse_double(arg, value());
         else if (arg == "--paths") opt.paths = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--horizon") opt.horizon = static_cast<size_t>(parse_uint(arg, value()));
         else if (arg == "--seed") opt.seed = parse_uint(arg, value());
@@ -189,6 +197,9 @@ Options parse_args(int argc, char* argv[]) {
     if (!(opt.block >= 1.0)) throw std::invalid_argument("--block must be at least 1");
     if (!(opt.max_weight > 0.0) || opt.max_weight > 1.0)
         throw std::invalid_argument("--max-weight must be in (0, 1]");
+    if (!(opt.max_participation >= 0.0) || opt.max_participation > 1.0)
+        throw std::invalid_argument("--max-participation must be in [0, 1]");
+    if (!(opt.borrow_rate >= 0.0)) throw std::invalid_argument("--borrow-rate must be non-negative");
     if (opt.wf_train < 2 || opt.wf_test < 2)
         throw std::invalid_argument("--wf-train and --wf-test must be at least 2");
     return opt;
@@ -400,6 +411,8 @@ int run_pipeline(const Options& opt) {
     exec_cfg.fixed_slippage_bps = 2.0;
     exec_cfg.spread_bps = 3.0;
     exec_cfg.enable_market_impact = true;
+    exec_cfg.max_participation = opt.max_participation;
+    exec_cfg.short_borrow_rate = opt.borrow_rate;
 
     backtest::EngineConfig engine_cfg;
     engine_cfg.fill_timing = opt.fill;
@@ -410,6 +423,15 @@ int run_pipeline(const Options& opt) {
               << (opt.fill == backtest::FillTiming::NextBarOpen ? "next bar open (no look-ahead)"
                                                                 : "signal bar close")
               << "   Capital: $" << std::setprecision(0) << opt.capital << std::setprecision(2) << "\n";
+    if (opt.max_participation > 0.0) {
+        std::cout << "  Liquidity: each order takes at most " << std::setprecision(1)
+                  << (opt.max_participation * 100.0) << "% of a bar's volume; the rest waits for the next bar"
+                  << std::setprecision(2) << "\n";
+    }
+    if (opt.borrow_rate > 0.0) {
+        std::cout << "  Short borrow: " << (opt.borrow_rate * 100.0)
+                  << "% a year on the market value of short positions\n";
+    }
 
     backtest::BacktestEngine engine(universe, backtest::Portfolio(opt.capital),
                                     backtest::ExecutionModel(exec_cfg), engine_cfg);
@@ -451,6 +473,16 @@ int run_pipeline(const Options& opt) {
             .count();
 
     print_tournament(runs);
+    if (opt.max_participation > 0.0 || opt.borrow_rate > 0.0) {
+        for (const auto& run : runs) {
+            const auto& r = run.result;
+            if (r.capped_fills == 0 && r.total_borrow_cost == 0.0) continue;
+            std::cout << "  " << std::left << std::setw(42) << r.strategy_name << std::right << r.capped_fills
+                      << " fills volume-capped, " << r.cancelled_remainders << " remainders replaced, "
+                      << r.unfilled_orders << " left unfilled, borrow $" << std::setprecision(0)
+                      << r.total_borrow_cost << std::setprecision(2) << "\n";
+        }
+    }
     std::cout << "  " << runs.size() << " backtests over " << universe.size() << " bars in "
               << std::setprecision(1) << tournament_ms << " ms\n";
 
@@ -525,6 +557,20 @@ int run_pipeline(const Options& opt) {
             analysis::sweep_costs(universe, make_strategies, cost_setup, {0.0, 0.5, 1.0, 2.0, 5.0, 10.0});
         std::cout << "\n" << analysis::format_cost_sensitivity_report(cost_rows);
     }
+
+    // ---------------------------------------------------------------- capacity
+    // The square-root impact term grows with order size, and no desk would take more than a slice
+    // of a day's volume, so the sweep caps participation at 10% unless --max-participation is set.
+    analysis::BacktestSetup capacity_setup;
+    capacity_setup.initial_cash = opt.capital;
+    capacity_setup.execution = exec_cfg;
+    if (!(capacity_setup.execution.max_participation > 0.0))
+        capacity_setup.execution.max_participation = 0.10;
+    capacity_setup.engine = engine_cfg;
+    capacity_setup.risk_free_rate = opt.risk_free;
+    const auto capacity_rows =
+        analysis::sweep_capacity(universe, make_strategies, capacity_setup, {1e5, 1e6, 1e7, 1e8, 1e9});
+    std::cout << "\n" << analysis::format_capacity_report(capacity_rows, capacity_setup.execution);
 
     // ----------------------------------------------------------------- sweep
     section(5, "In-sample parameter sweep: SMA crossover on " + ticker);
@@ -788,6 +834,19 @@ int run_pipeline(const Options& opt) {
         for (const auto& point : frontier) {
             frontier_csv << point.expected_return << ',' << point.volatility << ',' << point.sharpe_ratio
                          << '\n';
+        }
+
+        auto capacity_csv = open_csv(opt.export_dir, "capacity.csv");
+        capacity_csv << "strategy,capital,total_return,sharpe,max_drawdown,fills,transaction_costs,"
+                        "peak_participation,capped_fills\n";
+        for (const auto& row : capacity_rows) {
+            for (const auto& point : row.points) {
+                capacity_csv << csv_field(row.strategy_name) << ',' << point.capital << ','
+                             << point.performance.total_return << ',' << point.performance.sharpe_ratio << ','
+                             << point.performance.max_drawdown << ',' << point.performance.trades << ','
+                             << point.transaction_costs << ',' << point.peak_participation << ','
+                             << point.capped_fills << '\n';
+            }
         }
 
         auto sweep_csv = open_csv(opt.export_dir, "parameter_sweep.csv");

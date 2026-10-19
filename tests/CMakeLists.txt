@@ -37,6 +37,11 @@ if(TARGET quant_engine_cli)
     )
 endif()
 
+add_subdirectory(fuzz)
+if(TARGET quant_engine_cli)
+    add_subdirectory(golden)
+endif()
+
 # The reference copy of the Monte Carlo algorithm must round exactly like simulation/src/monte_carlo.cpp.
 if(NOT MSVC)
     set_source_files_properties(test_monte_carlo.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)

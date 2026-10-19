@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 from pathlib import Path
 
 W, H = 900, 460
@@ -254,6 +255,49 @@ def chart_rolling_sharpe(rows: list[dict], label_rows: list[dict], out: Path) ->
     out.write_text("\n".join(svg), encoding="utf-8")
 
 
+def capital_label(value: float) -> str:
+    for scale, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "k")):
+        if value >= scale:
+            return f"${value / scale:g}{suffix}"
+    return f"${value:g}"
+
+
+def chart_capacity(rows: list[dict], out: Path) -> None:
+    """Total return against account size, on a log axis: where each strategy stops working."""
+    names = list(dict.fromkeys(r["strategy"] for r in rows))
+    capitals = sorted({float(r["capital"]) for r in rows})
+    if len(capitals) < 2:
+        raise Skip("capacity.csv needs at least two account sizes")
+    series = {n: {float(r["capital"]): float(r["total_return"]) for r in rows if r["strategy"] == n} for n in names}
+    values = [v for s in series.values() for v in s.values()]
+    lo, hi = min(min(values), 0.0), max(max(values), 0.0)
+    pad = (hi - lo) * 0.08 or 0.1
+    lo, hi = lo - pad, hi + pad
+
+    svg = header("Capacity: total return against account size",
+                 "same strategies and costs; square-root impact, orders capped at a share of bar volume")
+    axis, ys = y_axis(lo, hi, lambda v: f"{v * 100:+.0f}%")
+    svg += axis
+    log_lo, log_hi = math.log10(capitals[0]), math.log10(capitals[-1])
+
+    def xs(c: float) -> float:
+        return PAD_L + PLOT_W * (math.log10(c) - log_lo) / (log_hi - log_lo)
+
+    svg.append(f'<line x1="{PAD_L}" y1="{ys(0):.1f}" x2="{PAD_L + PLOT_W}" y2="{ys(0):.1f}" stroke="{MUTED}"/>')
+    for c in capitals:
+        svg.append(text(xs(c), H - 38, capital_label(c), size=12, fill=MUTED, anchor="middle"))
+    for i, name in enumerate(names):
+        colour = SERIES[i % len(SERIES)]
+        pts = sorted(series[name].items())
+        svg.append(f'<polyline points="{" ".join(f"{xs(c):.1f},{ys(v):.1f}" for c, v in pts)}" fill="none" '
+                   f'stroke="{colour}" stroke-width="2"/>')
+        for c, v in pts:
+            svg.append(f'<circle cx="{xs(c):.1f}" cy="{ys(v):.1f}" r="3" fill="{colour}"/>')
+    svg += legend([(n.split("(")[0], SERIES[i % len(SERIES)]) for i, n in enumerate(names)])
+    svg.append("</svg>")
+    out.write_text("\n".join(svg), encoding="utf-8")
+
+
 def read_optional_csv(path: Path) -> list[dict]:
     return read_csv(path) if path.exists() else []
 
@@ -277,6 +321,7 @@ def main() -> int:
         "rolling_sharpe.svg": lambda: chart_rolling_sharpe(read_csv(src / "rolling_sharpe.csv"),
                                                            read_optional_csv(src / "regime_labels.csv"),
                                                            dst / "rolling_sharpe.svg"),
+        "capacity.svg": lambda: chart_capacity(read_csv(src / "capacity.csv"), dst / "capacity.svg"),
     }
 
     written = 0

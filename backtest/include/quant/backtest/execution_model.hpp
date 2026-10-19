@@ -15,6 +15,11 @@ struct ExecutionConfig {
     double spread_bps{3.0};                 // 3 basis points total bid-ask spread
     double market_impact_factor{0.1};       // Market impact factor: eta * (qty / volume)^0.5
     bool enable_market_impact{true};
+    /// Largest share of a bar's volume one order may take, e.g. 0.10; the rest waits for the next
+    /// bar. 0 disables the cap (every order fills completely, i.e. infinite liquidity).
+    double max_participation{0.0};
+    /// Annual fee on the market value of short positions, accrued every bar at close / 252.
+    double short_borrow_rate{0.0};
 };
 
 class ExecutionModel {
@@ -45,6 +50,7 @@ public:
         fill.price = reference_price;
         fill.date = bar.date;
         fill.timestamp = bar.timestamp;
+        fill.participation = bar.volume > 0.0 ? fill.quantity / bar.volume : 0.0;
 
         // 1. Bid-Ask Spread Cost (Half-spread)
         double half_spread_pct = (config_.spread_bps * 0.0001) * 0.5;
@@ -78,6 +84,17 @@ public:
         fill.commission = total_comm;
 
         return fill;
+    }
+
+    /**
+     * @brief Whole shares of `order` the bar's volume allows under max_participation.
+     *
+     * Returns the full quantity when the cap is off or the bar reports no volume (a CSV without a
+     * volume column), since liquidity cannot be judged from missing data.
+     */
+    [[nodiscard]] double fillable_quantity(const Order& order, const quant::data::Bar& bar) const noexcept {
+        if (!(config_.max_participation > 0.0) || !(bar.volume > 0.0)) return order.quantity;
+        return std::min(order.quantity, std::floor(config_.max_participation * bar.volume));
     }
 
     [[nodiscard]] const ExecutionConfig& get_config() const noexcept { return config_; }

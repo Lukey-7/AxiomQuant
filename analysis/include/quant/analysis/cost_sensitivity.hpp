@@ -13,8 +13,9 @@ namespace quant::analysis {
 /**
  * @brief Scales every component of an execution model by the same factor.
  *
- * Commissions, the spread, fixed slippage and the market-impact coefficient are all multiplied, so a
- * multiplier of 2 means "trading is twice as expensive in every respect".
+ * Commissions, the spread, fixed slippage, the market-impact coefficient and the short borrow rate
+ * are all multiplied, so a multiplier of 2 means "trading is twice as expensive in every respect".
+ * The participation cap is a liquidity limit rather than a price and is not scaled.
  */
 [[nodiscard]] backtest::ExecutionConfig scale_costs(const backtest::ExecutionConfig& base, double multiplier);
 

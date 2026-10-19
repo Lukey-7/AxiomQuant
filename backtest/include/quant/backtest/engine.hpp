@@ -38,11 +38,14 @@ struct BacktestResult {
     double total_return{0.0};
     size_t total_bars{0};
     size_t total_trades{0};
-    size_t rejected_orders{0};   // Orders dropped (no cash, no price, unknown ticker)
-    size_t unfilled_orders{0};   // Orders still queued when the data ran out
+    size_t rejected_orders{0};        // Orders dropped (no cash, no price, unknown ticker)
+    size_t unfilled_orders{0};        // Orders (or remainders) still queued when the data ran out
+    size_t capped_fills{0};           // Fills cut short by the volume participation cap
+    size_t cancelled_remainders{0};   // Carried remainders replaced by a newer order for the ticker
     double total_commissions{0.0};
     double total_slippage_cost{0.0};
     double total_spread_cost{0.0};
+    double total_borrow_cost{0.0};   // Fees on short positions (financing, not a transaction cost)
     std::vector<Fill> trades;
     std::vector<quant::data::EquityPointRecord> equity_curve;
     std::vector<double> daily_returns;
@@ -73,12 +76,19 @@ private:
     /**
      * @brief Executes a batch of orders against a snapshot. SELLs are processed before BUYs so
      *        that rebalancing frees cash before it is re-deployed.
+     *
+     * When the participation cap stops an order filling completely, the unfilled shares are appended
+     * to `remainders` (same order id) to be offered again on the next bar.
      */
     void execute_orders(std::vector<Order>& orders,
                         const quant::data::MarketSnapshot& snapshot,
                         bool fill_at_open,
                         Strategy& strategy,
-                        BacktestResult& result);
+                        BacktestResult& result,
+                        std::vector<Order>& remainders);
+
+    /// Charges one bar of borrow fee on every short position, valued at the bar's close.
+    void accrue_borrow_cost(const quant::data::MarketSnapshot& snapshot, BacktestResult& result);
 
     quant::data::MarketDataUniverse universe_;
     Portfolio portfolio_;

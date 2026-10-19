@@ -23,9 +23,9 @@ that +32.3% is not statistically distinguishable from zero.
 | Risk | CAGR, Sharpe, Sortino, Calmar, drawdowns, VaR/CVaR three ways | `risk/` |
 | Optimization | Covariance + Ledoit-Wolf, GMV/tangency, constrained QP, frontier, risk parity | `optimization/` |
 | Simulation | Reproducible per-path RNG, i.i.d. and block bootstrap, correlated GBM | `simulation/` |
-| Honesty layer | Walk-forward, cost sweeps, block-bootstrap error bars, deflated Sharpe, Reality Check / SPA, regime split | `analysis/` |
+| Honesty layer | Walk-forward, cost sweeps, capacity sweep, block-bootstrap error bars, deflated Sharpe, Reality Check / SPA, regime split | `analysis/` |
 | Point-in-time data | Index membership calendar so strategies cannot hold tomorrow's winners | `data/` |
-| Verification | 79 tests on 4 platforms, cvxpy cross-check, NumPy benchmark, coverage floor | `.github/` |
+| Verification | 89 tests on 4 platforms, golden-output regression test, CSV loader fuzzing, cvxpy cross-check, NumPy benchmark, coverage floor | `.github/`, `tests/` |
 
 ### What it found
 
@@ -142,7 +142,9 @@ python3 scripts/make_charts.py --input out --output docs/images
 
 ### `quant::data`
 Columnar `TimeSeries` (separate OHLCV vectors for vectorization-friendly access), a CSV loader that
-accepts arbitrary column order and skips malformed rows, and `MarketDataUniverse`, which synchronizes
+accepts arbitrary column order and skips malformed rows (non-finite or non-positive prices, negative
+volume, impossible dates, duplicate dates, numbers with trailing text; it is fuzzed in CI with
+libFuzzer under ASan and UBSan), and `MarketDataUniverse`, which synchronizes
 multiple assets onto one timeline (intersection, or union with forward-fill). It exposes
 `get_aligned_closes()` for indicator computation and `slice()` for walk-forward windows.
 `SqliteStorage` persists price history, run summaries, fills and equity curves.
@@ -157,7 +159,10 @@ Bollinger Bands with %B and bandwidth, annualized rolling volatility of log retu
 Event-driven loop over the synchronized timeline. Orders emitted on bar *t* execute at bar *t+1*'s
 open (`FillTiming::NextBarOpen`, the default); `SameBarClose` exists only for comparison studies.
 The execution model charges per-share and percentage commissions with a minimum ticket, a half
-bid-ask spread, fixed slippage, and square-root market impact ΔP/P = η·√(Q/V). Positions track
+bid-ask spread, fixed slippage, and square-root market impact ΔP/P = η·√(Q/V). Two optional
+frictions are off by default: a participation cap (`--max-participation`) that lets an order take at
+most a share of the bar's volume and carries the rest to the next bar, where a newer order for the
+ticker replaces it, and a borrow fee on short positions (`--borrow-rate`). Positions track
 average cost, realized and unrealized PnL; every fill records the PnL it realized and whether it
 closed a position. Strategies: SMA crossover, RSI mean reversion, cross-sectional momentum (with an
 optional absolute-momentum filter and point-in-time index membership), volatility targeting (position
@@ -201,7 +206,10 @@ and an efficient frontier with ASCII rendering.
 `evaluate_window` backtests one timeline window, replaying warm-up bars with trading disabled so each
 window starts flat. `sweep_sma_parameters` evaluates every (fast < slow) pair in parallel.
 `run_sma_walk_forward` rolls train/test windows forward, selecting parameters in sample and trading
-them unchanged on unseen data, against a buy-and-hold benchmark over the same days.
+them unchanged on unseen data, against a buy-and-hold benchmark over the same days. `sweep_costs`
+re-runs every strategy with all costs scaled together, and `sweep_capacity` re-runs it at account
+sizes from $100k to $1B with a participation cap, reporting the size at which the return halves and
+the size at which it reaches zero.
 
 ---
 
@@ -231,7 +239,13 @@ ctest --test-dir build -C Release --output-on-failure
 parallelism, `brew install libomp` and configure with `-DOpenMP_ROOT=$(brew --prefix libomp)`.
 
 Options: `-DAXIOM_BUILD_TESTS=OFF`, `-DAXIOM_BUILD_CLI=OFF`, `-DAXIOM_ENABLE_OPENMP=OFF`,
-`-DAXIOM_NATIVE=ON` (tune for the host CPU).
+`-DAXIOM_NATIVE=ON` (tune for the host CPU), `-DAXIOM_BUILD_FUZZERS=ON` (Clang: the libFuzzer target
+`fuzz_csv_loader`).
+
+`ctest` also runs a **golden-output test**: the CLI's full output on `sample_data`, pinned in
+`tests/golden/expected`, must match to one unit in the last printed digit. After a change that is
+meant to move the numbers, regenerate the copies with `cmake --build build --target update_golden`
+and review the diff.
 
 ---
 
@@ -248,6 +262,8 @@ Options: `-DAXIOM_BUILD_TESTS=OFF`, `-DAXIOM_BUILD_CLI=OFF`, `-DAXIOM_ENABLE_OPE
 --rf <rate>           annual risk-free rate used in Sharpe       (default: 0.02)
 --fill <open|close>   next-bar-open (default) or signal-close fills
 --max-weight <w>      per-asset cap for the constrained optimizer (default: 0.40)
+--max-participation <f>  largest share of a bar's volume one order takes (default: 0 = no cap)
+--borrow-rate <rate>  annual fee on short positions             (default: 0)
 --paths <n>           Monte Carlo paths                          (default: 50000)
 --horizon <days>      Monte Carlo horizon in trading days        (default: 252)
 --seed <n>            Monte Carlo and bootstrap seed             (default: 42)
@@ -272,6 +288,9 @@ Examples:
 
 # reproduce the look-ahead-biased convention to see how much it flatters results
 ./build/bin/axiomquant --fill close
+
+# a $50M account that may take at most 5% of any day's volume
+./build/bin/axiomquant --capital 50000000 --max-participation 0.05
 ```
 
 ---
@@ -456,7 +475,8 @@ of sample (0.38), on real prices, is the most informative number the project pro
   exists so the CLI and CI run offline. RESEARCH.md uses real prices instead.
 - Five symbols, daily bars, 11.7 years: too small a sample for statistical confidence.
 - The universe is fixed, so results are survivorship-biased by construction.
-- Costs are parametric, not a real venue model; no partial fills, no queue position, no borrow costs.
+- Costs are parametric, not a real venue model. Partial fills come only from the optional volume
+  cap; there is no queue position, and the borrow fee is one flat rate for every name.
 - Strategies are long-only with no leverage, no shorting, no position-level risk limits.
 - Single-asset-class, daily frequency. Nothing here is connected to a broker, and none of it is
   investment advice.
@@ -472,10 +492,10 @@ backtest/     engine, execution/cost model, portfolio, positions, strategies
 risk/         performance metrics, VaR/CVaR, text reports and ASCII equity curves
 simulation/   deterministic RNG, bootstrap and correlated GBM Monte Carlo
 optimization/ covariance estimation, Markowitz solvers, constrained QP, frontier
-analysis/     window evaluation, parameter sweeps, walk-forward, regimes
+analysis/     window evaluation, parameter sweeps, walk-forward, cost and capacity sweeps, regimes
 cli/          axiomquant, the end-to-end pipeline
 python/       optional pybind11 module, its tests and a quickstart example
-tests/        79 unit and regression tests
+tests/        89 unit and regression tests, the golden CLI output (golden/), the CSV fuzzer (fuzz/)
 third_party/  Eigen 3.4, SQLite 3.46 amalgamation
 ```
 

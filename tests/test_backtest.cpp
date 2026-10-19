@@ -251,3 +251,96 @@ TEST_CASE(TestBacktest_MomentumRanksAndRotates) {
         EXPECT_TRUE(ranking[i - 1].trailing_return >= ranking[i].trailing_return);
     }
 }
+
+// --- Execution realism: volume participation cap and short borrow ---
+namespace {
+
+quant::backtest::ExecutionConfig capped_execution(double max_participation) {
+    auto cfg = quant::tests::frictionless_execution();
+    cfg.max_participation = max_participation;
+    return cfg;
+}
+
+}   // namespace
+
+TEST_CASE(TestBacktest_ParticipationCapSplitsAnOrderAcrossBars) {
+    // Synthetic bars trade 1,000,000 shares; a 0.1% cap allows 1,000 shares per bar.
+    auto universe = quant::tests::make_universe({{"AAA", {100.0, 100.0, 100.0, 100.0, 100.0}, {}}});
+    quant::tests::ScriptedStrategy strategy({{0, "AAA", quant::backtest::OrderSide::BUY, 2500.0}});
+    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(1.0e6),
+                                           quant::backtest::ExecutionModel(capped_execution(0.001)));
+
+    const auto result = engine.run(strategy);
+    EXPECT_EQ(result.trades.size(), 3u);
+    EXPECT_EQ(result.capped_fills, 2u);
+    EXPECT_EQ(result.unfilled_orders, 0u);
+    if (result.trades.size() == 3) {
+        EXPECT_NEAR(result.trades[0].quantity, 1000.0, 1e-9);
+        EXPECT_NEAR(result.trades[1].quantity, 1000.0, 1e-9);
+        EXPECT_NEAR(result.trades[2].quantity, 500.0, 1e-9);
+        EXPECT_EQ(result.trades[0].date, universe.get_timeline()[1]);   // next-bar open, then one per bar
+        EXPECT_EQ(result.trades[2].date, universe.get_timeline()[3]);
+        EXPECT_EQ(result.trades[0].order_id, result.trades[2].order_id);   // one order, three fills
+        EXPECT_NEAR(result.trades[0].participation, 0.001, 1e-12);
+    }
+    EXPECT_NEAR(engine.get_portfolio().get_position_quantity("AAA"), 2500.0, 1e-9);
+}
+
+TEST_CASE(TestBacktest_NewOrderSupersedesCarriedRemainder) {
+    auto universe = quant::tests::make_universe({{"AAA", {100.0, 100.0, 100.0, 100.0, 100.0}, {}}});
+    // Bar 0 asks for 2,500 shares (1,000 fill at bar 1); bar 1 then sells 100, which replaces the
+    // 1,500-share remainder instead of trading alongside it.
+    quant::tests::ScriptedStrategy strategy({{0, "AAA", quant::backtest::OrderSide::BUY, 2500.0},
+                                             {1, "AAA", quant::backtest::OrderSide::SELL, 100.0}});
+    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(1.0e6),
+                                           quant::backtest::ExecutionModel(capped_execution(0.001)));
+
+    const auto result = engine.run(strategy);
+    EXPECT_EQ(result.cancelled_remainders, 1u);
+    EXPECT_EQ(result.trades.size(), 2u);
+    EXPECT_NEAR(engine.get_portfolio().get_position_quantity("AAA"), 900.0, 1e-9);
+}
+
+TEST_CASE(TestBacktest_ParticipationCapCarriesRemainderInSameBarCloseMode) {
+    auto universe = quant::tests::make_universe({{"AAA", {100.0, 100.0, 100.0, 100.0}, {}}});
+    quant::tests::ScriptedStrategy strategy({{0, "AAA", quant::backtest::OrderSide::BUY, 1500.0}});
+    quant::backtest::EngineConfig cfg;
+    cfg.fill_timing = quant::backtest::FillTiming::SameBarClose;
+    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(1.0e6),
+                                           quant::backtest::ExecutionModel(capped_execution(0.001)), cfg);
+
+    const auto result = engine.run(strategy);
+    EXPECT_EQ(result.trades.size(), 2u);
+    if (result.trades.size() == 2) {
+        EXPECT_EQ(result.trades[0].date, universe.get_timeline()[0]);
+        EXPECT_EQ(result.trades[1].date, universe.get_timeline()[1]);
+        EXPECT_NEAR(result.trades[1].quantity, 500.0, 1e-9);
+    }
+}
+
+TEST_CASE(TestBacktest_ParticipationCapIgnoresBarsWithoutVolume) {
+    const quant::backtest::ExecutionModel model(capped_execution(0.10));
+    quant::backtest::Order order;
+    order.quantity = 5000.0;
+    quant::data::Bar no_volume{"2023-01-02", 0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0};
+    quant::data::Bar thin{"2023-01-02", 0, 10.0, 10.0, 10.0, 10.0, 10.0, 12345.0};
+    EXPECT_NEAR(model.fillable_quantity(order, no_volume), 5000.0, 1e-12);   // unknown liquidity
+    EXPECT_NEAR(model.fillable_quantity(order, thin), 1234.0, 1e-12);        // whole shares only
+
+    const quant::backtest::ExecutionModel uncapped(quant::tests::frictionless_execution());
+    EXPECT_NEAR(uncapped.fillable_quantity(order, thin), 5000.0, 1e-12);
+}
+
+TEST_CASE(TestBacktest_ShortBorrowAccruesDailyOnMarketValue) {
+    auto universe = quant::tests::make_universe({{"AAA", {100.0, 100.0, 100.0, 100.0, 100.0}, {}}});
+    quant::tests::ScriptedStrategy strategy({{0, "AAA", quant::backtest::OrderSide::SELL, 100.0}});
+    auto cfg = quant::tests::frictionless_execution();
+    cfg.short_borrow_rate = 0.252;   // 0.1% a day on a $10,000 short = $10 per bar
+    quant::backtest::BacktestEngine engine(universe, quant::backtest::Portfolio(100000.0),
+                                           quant::backtest::ExecutionModel(cfg));
+
+    const auto result = engine.run(strategy);
+    // Shorted at bar 1's open and held through the closes of bars 1 to 4.
+    EXPECT_NEAR(result.total_borrow_cost, 40.0, 1e-9);
+    EXPECT_NEAR(result.final_equity, 100000.0 - 40.0, 1e-9);
+}

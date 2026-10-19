@@ -45,7 +45,11 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 `main` is green on Linux/GCC, macOS/Apple Clang, Windows/MSVC and a Clang ASan+UBSan build:
 **64 tests** plus an end-to-end CLI run, plus the *Data tooling*, *Optimizer vs reference solver*,
 *Benchmark vs NumPy*, *clang-format and clang-tidy* and *Test coverage* (80% line floor, currently
-86%) jobs. Reference run for every
+86%) jobs.
+
+Branch `feat/realism-capacity-tests` (19 Oct 2026, not yet merged) brings the suite to **89 tests**
+plus three more CTest entries (CLI end to end, golden output, fuzz replay) and adds the *Fuzz the
+CSV loader* job; it was green locally (MSYS2 GCC) before its first push, CI still to confirm. Reference run for every
 number in RESEARCH.md and the README charts: **35057670453** (workflow *Real data*, job *Fetch and
 analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-09-14). The README's
 *Sample output* section still quotes synthetic-data run **34671037291** (job *Linux (GCC)*).
@@ -53,20 +57,25 @@ analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-
 ### Layout
 
 ```
-data/         CSV loader, columnar TimeSeries, MarketDataUniverse (synchronize, aligned closes, slice)
+data/         CSV loader (load_file / load_stream, strict row validation), columnar TimeSeries,
+              MarketDataUniverse (synchronize, aligned closes, slice)
 indicators/   SMA EMA RSI MACD Bollinger rolling-vol ATR (header-only)
-backtest/     engine (fill timing, cash guard), execution/cost model, portfolio, strategies
+backtest/     engine (fill timing, cash guard, optional volume cap with carried remainders, short
+              borrow), execution/cost model, portfolio, strategies
 risk/         metrics, VaR/CVaR (historical, Gaussian, Cornish-Fisher), text reports, ASCII charts
 simulation/   deterministic per-path RNG (rng.hpp, shared with analysis), bootstrap, correlated GBM
 optimization/ covariance + Ledoit-Wolf, GMV/tangency, constrained QP (FISTA), frontier, risk parity
-analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward; significance: stationary
+analysis/     evaluate_window, sweep_sma_parameters, run_sma_walk_forward, sweep_costs,
+              sweep_capacity ($100k-$1B, half-return and break-even size); significance: stationary
               block bootstrap of Sharpe (paired), probabilistic and deflated Sharpe ratio
               regimes: point-in-time trend/volatility labels, per-regime metrics, rolling Sharpe
 cli/          axiomquant: 9-stage pipeline, flags, CSV export, cost-of-look-ahead study;
               axiom_optimizer_dump and axiom_bench feed the two cross-check/benchmark CI jobs
 python/       optional pybind11 module axiomquant (-DAXIOM_BUILD_PYTHON=ON): universe, backtest,
               metrics, walk-forward, significance; unittest suite cross-checks the CLI; quickstart
-tests/        64 tests; test_support.hpp builds synthetic universes and scripted strategies
+tests/        89 tests; test_support.hpp builds synthetic universes and scripted strategies;
+              golden/ pins the CLI output on sample_data (golden_diff, update_golden target);
+              fuzz/ holds the libFuzzer target, a seeded replay driver and the seed corpus
 scripts/      fetch_data.py (stdlib only: live Yahoo/Tiingo, import incl. Kaggle, synthetic),
               test_fetch_data.py (offline unittest), make_charts.py (dependency-free SVG),
               check_optimizer.py (cvxpy cross-check), benchmark.py (NumPy benchmark + SVG)
@@ -86,6 +95,12 @@ docs/         guide/quant-from-zero (beginner guide + PDF + build_pdf.py),
   renormalisation after clamping — it can violate the box constraints.
 - Walk-forward windows start flat; warm-up bars are replayed with `trading_start_index` blocking orders.
 - OpenMP is optional everywhere; guard every `omp.h` include and pragma with `#ifdef _OPENMP`.
+- The participation cap and borrow fee default to **off**, so every published figure stays valid.
+  A carried remainder is cancelled when the strategy sends a newer order for that ticker (the
+  strategy sized it from the position it really holds); a buy cut down for cash carries nothing.
+- The golden test compares integers exactly and decimals to one unit in the last printed digit.
+  Any change that moves numbers on purpose must regenerate `tests/golden/expected`
+  (`cmake --build build --target update_golden`) in the same commit, with the diff reviewed.
 
 ### Known truths about the data
 
@@ -125,7 +140,10 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
    its single-name strategies, which the study confirms are unaffected.
 7. ~~Fairer walk-forward~~ - done (`carry_position`, `sweep_walk_forward`; RESEARCH.md section 3).
 8. ~~Data-driven significance settings~~ - done (Politis-White block length, `effective_trials`).
-9. Remaining ideas: cluster-based effective trials, a longer history (from 2000) covering a decade
+9. ~~Execution realism, capacity, golden tests, fuzzing~~ - done on `feat/realism-capacity-tests`
+   (backlog items 5, 6, 9, 10 below). Follow-up: quote the capacity table and capacity.svg from a
+   named *Real data* run in RESEARCH.md, and try the participation cap on the S&P 500 study.
+10. Remaining ideas: cluster-based effective trials, a longer history (from 2000) covering a decade
    that was bad for buy-and-hold, and intraday or higher-frequency data.
 
 ## Commands
@@ -146,7 +164,8 @@ gh workflow run "Real data"
 ## Backlog: ten improvements, with enough detail to start cold
 
 Ordered by value. Each entry says what to build, why it matters, where it goes, and how to prove it
-worked. Items 1, 2, 7 and 8 are done (10 Oct 2026); the rest are not started.
+worked. Items 1, 2, 7 and 8 are done (10 Oct 2026); 5, 6, 9 and 10 are done on
+`feat/realism-capacity-tests` (19 Oct 2026); 3 and 4 are not started.
 
 ### Research credibility
 
@@ -185,14 +204,20 @@ for `make_membership.py`. *Proof:* a second report next to `docs/guide/reports/S
 
 ### Production realism
 
-**5. Execution realism: partial fills, volume caps, borrow costs.**
+**5. ~~Execution realism: partial fills, volume caps, borrow costs.~~** Done: `ExecutionConfig::
+max_participation` / `short_borrow_rate` (CLI `--max-participation`, `--borrow-rate`; Python
+`CostModel(...)`), remainders carried with the order id, `capped_fills`, `cancelled_remainders`,
+`total_borrow_cost` and per-fill `participation`; tests in `tests/test_backtest.cpp`. Off by default.
+Original entry:
 *What:* cap each order at a fraction of the bar's volume (e.g. 10%), carry the remainder to the next
 bar, and charge a borrow rate on short positions. *Why:* every order currently fills completely at
 one price, which quietly assumes infinite liquidity. *Where:* `backtest/src/engine.cpp` and
 `execution_model.hpp`; the `Order` type needs a remaining-quantity field. *Proof:* momentum's fill
 count and costs should rise and its return fall; the cost-sensitivity table gains a column.
 
-**6. Capacity analysis.**
+**6. ~~Capacity analysis.~~** Done: `analysis/capacity.*`, CLI table after cost sensitivity,
+`capacity.csv`, `capacity.svg` in `make_charts.py`; the sweep uses a 10% participation cap unless
+`--max-participation` is set. Results still need quoting from a named real-data run. Original entry:
 *What:* rerun a strategy at increasing account sizes ($100k to $1B) and plot return against capital.
 *Why:* answers "at what size does this stop working?", which is the question a desk actually asks,
 and the square-root impact model already in `execution_model.hpp` makes it nearly free to compute.
@@ -222,13 +247,16 @@ access. *Why:* it is the one clear performance defect, and it is measurable. *Wh
 matrix-matrix operation, or generate all shocks for a path block at once. *Proof:* `scripts/
 benchmark.py` already times this workload — report before/after in the README performance table.
 
-**9. Golden-output regression tests.**
+**9. ~~Golden-output regression tests.~~** Done: `tests/golden` (stdout plus seven CSV exports,
+`golden_diff`, `update_golden`). A 0.1 bp change to the spread turns it red. Original entry:
 *What:* pin the full CLI output on `sample_data` (with fixed seeds and paths) as a checked-in file,
 and fail CI on any diff. *Why:* results currently change silently when numerics change; this catches
 it. *Where:* `tests/` plus a CI step; store the expected output under `tests/golden/`. *Proof:* a
 deliberate one-line change to a formula turns CI red.
 
-**10. Fuzz the CSV loader.**
+**10. ~~Fuzz the CSV loader.~~** Done: `tests/fuzz` and the *Fuzz the CSV loader* CI job. It found
+duplicate dates, non-finite prices, negative volume, impossible dates and numbers with trailing
+text getting through; all are rejected now. Original entry:
 *What:* libFuzzer or AFL++ over `CsvLoader::load_file` with a seed corpus of the sample CSVs.
 *Why:* it parses untrusted text and is the most likely place for a crash; the ASan build already in
 CI makes findings actionable. *Where:* `tests/fuzz/` with a `-DAXIOM_BUILD_FUZZERS=ON` target, run

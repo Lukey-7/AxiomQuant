@@ -7,6 +7,7 @@
 #include "quant/data/sqlite_storage.hpp"
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 
 TEST_CASE(TestData_TimeSeries_Returns) {
@@ -195,4 +196,37 @@ TEST_CASE(TestData_MembershipCalendar_LoadsCsv) {
     std::filesystem::remove(path);
 
     EXPECT_THROW((void)quant::data::MembershipCalendar::load("does_not_exist_12345.csv"), std::runtime_error);
+}
+
+TEST_CASE(TestData_CsvLoader_ParsesRealCalendarDatesOnly) {
+    using quant::data::CsvLoader;
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("1970-01-02"), 86400);
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("2024-02-29"), 1709164800);         // leap day
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("2020/01/02 16:00"), 1577923200);   // time ignored
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("1962-01-02"), -252374400);         // before 1970
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("2023-02-29"), 0);                  // not a leap year
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("2021-13-01"), 0);
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("2021-01-1x"), 0);
+    EXPECT_EQ(CsvLoader::parse_date_to_timestamp("2021-01/05"), 0);
+}
+
+// Each of these rows was accepted before the CSV fuzzer flagged it; none may reach the engine.
+TEST_CASE(TestData_CsvLoader_RejectsMalformedRows) {
+    std::istringstream csv(
+        "Date,Open,High,Low,Close,Adj Close,Volume\n"
+        "2021-03-01,10,11,9,10.5,10.5,1000\n"
+        "2021-03-01,99,99,99,99,99,99\n"                  // duplicate date: first row wins
+        "2021-03-02,\"1,000.5\",1010,990,1005,1005,1\n"   // thousands separator
+        "2021-03-03,inf,inf,1,2,2,10\n"                   // infinite open/high
+        "2021-03-04,2,3,1,2,nan,10\n"                     // NaN adjusted close
+        "2021-03-05,2,3,1,2,2,-5\n"                       // negative volume
+        "2021-02-30,2,3,1,2,2,10\n"                       // impossible date
+        "2021-03-08,11,12,10,11.5,11.5,2000\n");
+    const auto series = quant::data::CsvLoader::load_stream(csv, "TEST", "inline");
+    EXPECT_EQ(series.size(), 2);
+    if (series.size() == 2) {
+        EXPECT_EQ(series.dates[0], std::string("2021-03-01"));
+        EXPECT_NEAR(series.close[0], 10.5, 1e-12);
+        EXPECT_EQ(series.dates[1], std::string("2021-03-08"));
+    }
 }

@@ -13,6 +13,7 @@ option(AXIOM_BUILD_CLI     "Build the axiomquant command-line tool"  ON)
 option(AXIOM_ENABLE_OPENMP "Parallelize simulations with OpenMP"     ON)
 option(AXIOM_NATIVE        "Tune code generation for the host CPU"   OFF)
 option(AXIOM_BUILD_PYTHON  "Build the axiomquant Python module (pybind11)" OFF)
+option(AXIOM_BUILD_FUZZERS "Build libFuzzer targets (Clang only)"     OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -61,6 +62,13 @@ else()
     if(AXIOM_NATIVE)
         add_compile_options(-march=native)
     endif()
+endif()
+
+# libFuzzer is coverage-guided, so the engine libraries (not only the fuzz targets) need the
+# instrumentation; the fuzz target itself adds -fsanitize=fuzzer to pull in the libFuzzer main.
+if(AXIOM_BUILD_FUZZERS)
+    add_compile_options(-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=all)
+    add_link_options(-fsanitize=address,undefined)
 endif()
 
 # ---------------------------------------------------------------------------

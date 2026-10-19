@@ -4,7 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cctype>
-#include <ctime>
+#include <optional>
 
 namespace quant::data {
 
@@ -42,32 +42,57 @@ std::vector<std::string> split_csv_line(const std::string& line) {
     return tokens;
 }
 
+/// Parses a whole field as a number. std::stod alone accepts a numeric prefix, which would read
+/// "1,000.5" (a thousands separator inside quotes) as 1.0; any trailing text is an error instead.
+double parse_number(const std::string& field) {
+    size_t consumed = 0;
+    const double value = std::stod(field, &consumed);
+    if (consumed != field.size()) throw std::invalid_argument("trailing characters in number: " + field);
+    return value;
+}
+
+/// Parses the leading YYYY-MM-DD (or YYYY/MM/DD) of `text` to Unix seconds at midnight UTC.
+/// Anything after the date (e.g. a time of day) is ignored. Returns nullopt for anything that is not
+/// a real calendar date, so 2021-02-30 is rejected rather than silently rolled into March.
+std::optional<int64_t> parse_iso_date(const std::string& text) {
+    const std::string s = trim(text);
+    if (s.size() < 10) return std::nullopt;
+    const auto digit = [&s](size_t i) { return std::isdigit(static_cast<unsigned char>(s[i])) != 0; };
+    static constexpr size_t kDigitPositions[] = {0, 1, 2, 3, 5, 6, 8, 9};
+    for (const size_t i : kDigitPositions) {
+        if (!digit(i)) return std::nullopt;
+    }
+    if ((s[4] != '-' && s[4] != '/') || s[7] != s[4]) return std::nullopt;
+
+    const auto number = [&s](size_t pos, size_t len) {
+        int value = 0;
+        for (size_t i = pos; i < pos + len; ++i)
+            value = value * 10 + (s[i] - '0');
+        return value;
+    };
+    const int year = number(0, 4);
+    const int month = number(5, 2);
+    const int day = number(8, 2);
+    if (month < 1 || month > 12 || day < 1) return std::nullopt;
+    static constexpr int kDaysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    if (day > kDaysInMonth[month - 1] + ((month == 2 && leap) ? 1 : 0)) return std::nullopt;
+
+    // Days since 1970-01-01 in the proleptic Gregorian calendar (H. Hinnant's days_from_civil), so
+    // the result does not depend on the platform's timegm/_mkgmtime range limits.
+    const int y = year - (month <= 2 ? 1 : 0);
+    const int era = (y >= 0 ? y : y - 399) / 400;
+    const int yoe = y - era * 400;
+    const int doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1;
+    const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    const int64_t days = static_cast<int64_t>(era) * 146097 + doe - 719468;
+    return days * 86400;
+}
+
 }   // namespace
 
 int64_t CsvLoader::parse_date_to_timestamp(const std::string& date_str) {
-    std::tm tm{};
-    std::string s = trim(date_str);
-
-    // Support YYYY-MM-DD or YYYY/MM/DD
-    if (s.size() >= 10) {
-        try {
-            tm.tm_year = std::stoi(s.substr(0, 4)) - 1900;
-            tm.tm_mon = std::stoi(s.substr(5, 2)) - 1;
-            tm.tm_mday = std::stoi(s.substr(8, 2));
-            tm.tm_hour = 0;
-            tm.tm_min = 0;
-            tm.tm_sec = 0;
-            tm.tm_isdst = -1;
-#if defined(_WIN32)
-            return static_cast<int64_t>(_mkgmtime(&tm));
-#else
-            return static_cast<int64_t>(timegm(&tm));
-#endif
-        } catch (...) {
-            return 0;
-        }
-    }
-    return 0;
+    return parse_iso_date(date_str).value_or(0);
 }
 
 TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std::string& ticker) {
@@ -75,10 +100,13 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open CSV file: " + filepath.string());
     }
+    return load_stream(file, ticker, filepath.string());
+}
 
+TimeSeries CsvLoader::load_stream(std::istream& file, const std::string& ticker, const std::string& source) {
     std::string header_line;
     if (!std::getline(file, header_line)) {
-        throw std::runtime_error("CSV file is empty: " + filepath.string());
+        throw std::runtime_error("CSV file is empty: " + source);
     }
 
     auto headers = split_csv_line(header_line);
@@ -98,8 +126,7 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
     }
 
     if (date_idx == -1 || close_idx == -1) {
-        throw std::runtime_error("CSV must contain at least 'Date' and 'Close' columns: " +
-                                 filepath.string());
+        throw std::runtime_error("CSV must contain at least 'Date' and 'Close' columns: " + source);
     }
 
     std::vector<Bar> raw_bars;
@@ -115,22 +142,24 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
         try {
             Bar bar;
             bar.date = tokens[date_idx];
-            bar.timestamp = parse_date_to_timestamp(bar.date);
-            bar.close = std::stod(tokens[close_idx]);
+            const auto timestamp = parse_iso_date(bar.date);
+            if (!timestamp) continue;
+            bar.timestamp = *timestamp;
+            bar.close = parse_number(tokens[close_idx]);
             bar.open = (open_idx != -1 && open_idx < static_cast<int>(tokens.size()))
-                           ? std::stod(tokens[open_idx])
+                           ? parse_number(tokens[open_idx])
                            : bar.close;
             bar.high = (high_idx != -1 && high_idx < static_cast<int>(tokens.size()))
-                           ? std::stod(tokens[high_idx])
+                           ? parse_number(tokens[high_idx])
                            : std::max(bar.open, bar.close);
             bar.low = (low_idx != -1 && low_idx < static_cast<int>(tokens.size()))
-                          ? std::stod(tokens[low_idx])
+                          ? parse_number(tokens[low_idx])
                           : std::min(bar.open, bar.close);
             bar.adj_close = (adj_close_idx != -1 && adj_close_idx < static_cast<int>(tokens.size()))
-                                ? std::stod(tokens[adj_close_idx])
+                                ? parse_number(tokens[adj_close_idx])
                                 : bar.close;
             bar.volume = (vol_idx != -1 && vol_idx < static_cast<int>(tokens.size()))
-                             ? std::stod(tokens[vol_idx])
+                             ? parse_number(tokens[vol_idx])
                              : 0.0;
 
             if (bar.is_valid()) {
@@ -142,9 +171,12 @@ TimeSeries CsvLoader::load_file(const std::filesystem::path& filepath, const std
         }
     }
 
-    // Ensure chronological order
-    std::sort(raw_bars.begin(), raw_bars.end(),
-              [](const Bar& a, const Bar& b) { return a.timestamp < b.timestamp; });
+    // Chronological order; a date that appears twice keeps its first row in file order.
+    std::stable_sort(raw_bars.begin(), raw_bars.end(),
+                     [](const Bar& a, const Bar& b) { return a.timestamp < b.timestamp; });
+    raw_bars.erase(std::unique(raw_bars.begin(), raw_bars.end(),
+                               [](const Bar& a, const Bar& b) { return a.timestamp == b.timestamp; }),
+                   raw_bars.end());
 
     TimeSeries ts(ticker);
     ts.reserve(raw_bars.size());

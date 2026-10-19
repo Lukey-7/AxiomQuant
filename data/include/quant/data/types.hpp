@@ -25,9 +25,13 @@ struct Bar {
     double adj_close{0.0};
     double volume{0.0};
 
+    /// Every price finite and positive, the high/low range containing open and close, and a finite,
+    /// non-negative volume (0 means the source did not report one).
     [[nodiscard]] bool is_valid() const noexcept {
-        return open > 0.0 && high >= low && high >= open && high >= close && low <= open && low <= close &&
-               close > 0.0 && !std::isnan(close) && !std::isinf(close);
+        const auto price = [](double p) { return std::isfinite(p) && p > 0.0; };
+        return price(open) && price(high) && price(low) && price(close) && price(adj_close) && high >= low &&
+               high >= open && high >= close && low <= open && low <= close && std::isfinite(volume) &&
+               volume >= 0.0;
     }
 };
 
