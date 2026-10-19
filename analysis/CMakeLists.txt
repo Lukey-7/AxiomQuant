@@ -1,4 +1,5 @@
 add_library(quant_analysis STATIC
+    src/capacity.cpp
     src/cost_sensitivity.cpp
     src/regimes.cpp
     src/significance.cpp

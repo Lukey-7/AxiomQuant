@@ -22,6 +22,7 @@
 #include "quant/optimization/unconstrained.hpp"
 #include "quant/optimization/constrained_qp.hpp"
 #include "quant/optimization/efficient_frontier.hpp"
+#include "quant/analysis/capacity.hpp"
 #include "quant/analysis/cost_sensitivity.hpp"
 #include "quant/analysis/regimes.hpp"
 #include "quant/analysis/significance.hpp"
@@ -557,6 +558,20 @@ int run_pipeline(const Options& opt) {
         std::cout << "\n" << analysis::format_cost_sensitivity_report(cost_rows);
     }
 
+    // ---------------------------------------------------------------- capacity
+    // The square-root impact term grows with order size, and no desk would take more than a slice
+    // of a day's volume, so the sweep caps participation at 10% unless --max-participation is set.
+    analysis::BacktestSetup capacity_setup;
+    capacity_setup.initial_cash = opt.capital;
+    capacity_setup.execution = exec_cfg;
+    if (!(capacity_setup.execution.max_participation > 0.0))
+        capacity_setup.execution.max_participation = 0.10;
+    capacity_setup.engine = engine_cfg;
+    capacity_setup.risk_free_rate = opt.risk_free;
+    const auto capacity_rows =
+        analysis::sweep_capacity(universe, make_strategies, capacity_setup, {1e5, 1e6, 1e7, 1e8, 1e9});
+    std::cout << "\n" << analysis::format_capacity_report(capacity_rows, capacity_setup.execution);
+
     // ----------------------------------------------------------------- sweep
     section(5, "In-sample parameter sweep: SMA crossover on " + ticker);
     analysis::BacktestSetup setup;
@@ -819,6 +834,19 @@ int run_pipeline(const Options& opt) {
         for (const auto& point : frontier) {
             frontier_csv << point.expected_return << ',' << point.volatility << ',' << point.sharpe_ratio
                          << '\n';
+        }
+
+        auto capacity_csv = open_csv(opt.export_dir, "capacity.csv");
+        capacity_csv << "strategy,capital,total_return,sharpe,max_drawdown,fills,transaction_costs,"
+                        "peak_participation,capped_fills\n";
+        for (const auto& row : capacity_rows) {
+            for (const auto& point : row.points) {
+                capacity_csv << csv_field(row.strategy_name) << ',' << point.capital << ','
+                             << point.performance.total_return << ',' << point.performance.sharpe_ratio << ','
+                             << point.performance.max_drawdown << ',' << point.performance.trades << ','
+                             << point.transaction_costs << ',' << point.peak_participation << ','
+                             << point.capped_fills << '\n';
+            }
         }
 
         auto sweep_csv = open_csv(opt.export_dir, "parameter_sweep.csv");

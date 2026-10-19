@@ -1,5 +1,6 @@
 #include "test_harness.hpp"
 #include "test_support.hpp"
+#include "quant/analysis/capacity.hpp"
 #include "quant/analysis/cost_sensitivity.hpp"
 #include "quant/analysis/walk_forward.hpp"
 #include "quant/backtest/strategies/sma_crossover.hpp"
@@ -7,6 +8,7 @@
 #include "quant/backtest/strategies/buy_and_hold.hpp"
 #include <cmath>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -124,6 +126,81 @@ TEST_CASE(TestAnalysis_ScaleCosts_ScalesEveryComponent) {
     const auto free_trading = quant::analysis::scale_costs(base, 0.0);
     EXPECT_NEAR(free_trading.min_commission, 0.0, 1e-15);
     EXPECT_NEAR(free_trading.spread_bps, 0.0, 1e-15);
+
+    base.short_borrow_rate = 0.03;
+    base.max_participation = 0.10;
+    const auto tripled = quant::analysis::scale_costs(base, 3.0);
+    EXPECT_NEAR(tripled.short_borrow_rate, 0.09, 1e-15);
+    EXPECT_NEAR(tripled.max_participation, 0.10, 1e-15);   // a liquidity limit, not a price
+}
+
+namespace {
+
+std::vector<std::unique_ptr<quant::backtest::Strategy>> one_crossover() {
+    std::vector<std::unique_ptr<quant::backtest::Strategy>> built;
+    built.push_back(std::make_unique<quant::backtest::strategies::SmaCrossoverStrategy>("AAA", 5, 20));
+    return built;
+}
+
+}   // namespace
+
+TEST_CASE(TestAnalysis_Capacity_ReturnsFallWithAccountSize) {
+    auto universe = trending_universe(400);
+    quant::analysis::BacktestSetup setup;   // default costs, including square-root impact
+    setup.execution.max_participation = 0.10;
+
+    const auto rows = quant::analysis::sweep_capacity(universe, one_crossover, setup, {1e9, 1e4, 1e6, 1e8});
+    EXPECT_EQ(rows.size(), 1u);
+    const auto& row = rows.front();
+    EXPECT_EQ(row.points.size(), 4u);
+    EXPECT_NEAR(row.points.front().capital, 1e4, 1e-6);   // sorted ascending
+    for (size_t i = 1; i < row.points.size(); ++i) {
+        EXPECT_TRUE(row.points[i].performance.total_return < row.points[i - 1].performance.total_return);
+        EXPECT_TRUE(row.points[i].peak_participation >= row.points[i - 1].peak_participation);
+    }
+    // Impact makes costs grow faster than capital once orders are a visible share of volume. Not
+    // monotone at either end: at $10k the $1 minimum commission dominates, and at $1B the cap keeps
+    // most of the account in cash, so less of it pays for trading at all.
+    const auto cost_share = [](const quant::analysis::CapacityPoint& p) {
+        return p.transaction_costs / p.capital;
+    };
+    EXPECT_TRUE(cost_share(row.points[2]) > cost_share(row.points[1]));
+    // Synthetic bars trade 1M shares, so a $1B account hits the 10% cap and loses money.
+    EXPECT_TRUE(row.points.front().performance.total_return > 0.0);
+    EXPECT_TRUE(row.points.back().performance.total_return < 0.0);
+    EXPECT_TRUE(row.points.back().capped_fills > 0u);
+    EXPECT_NEAR(row.points.back().peak_participation, 0.10, 1e-12);
+    EXPECT_TRUE(std::isfinite(row.half_return_capital) && std::isfinite(row.breakeven_capital));
+    EXPECT_TRUE(row.half_return_capital < row.breakeven_capital);
+    EXPECT_TRUE(row.breakeven_capital > 1e4 && row.breakeven_capital < 1e9);
+}
+
+TEST_CASE(TestAnalysis_Capacity_SmallestAccountMatchesCostSweep) {
+    auto universe = trending_universe(400);
+    quant::analysis::BacktestSetup setup;
+    const auto capacity =
+        quant::analysis::sweep_capacity(universe, one_crossover, setup, {setup.initial_cash});
+    const auto costs = quant::analysis::sweep_costs(universe, one_crossover, setup, {1.0});
+    EXPECT_NEAR(capacity.front().points.front().performance.total_return,
+                costs.front().points.front().performance.total_return, 1e-12);
+    EXPECT_NEAR(capacity.front().points.front().performance.sharpe_ratio,
+                costs.front().points.front().performance.sharpe_ratio, 1e-12);
+    EXPECT_TRUE(std::isnan(capacity.front().breakeven_capital));   // one point cannot cross zero
+    EXPECT_THROW((void)quant::analysis::sweep_capacity(universe, one_crossover, setup, {}),
+                 std::invalid_argument);
+    EXPECT_THROW((void)quant::analysis::sweep_capacity(universe, one_crossover, setup, {-1.0}),
+                 std::invalid_argument);
+}
+
+TEST_CASE(TestAnalysis_Capacity_FormatsCapitalCompactly) {
+    using quant::analysis::format_capital;
+    EXPECT_EQ(format_capital(1e5), std::string("$100k"));
+    EXPECT_EQ(format_capital(1e9), std::string("$1B"));
+    EXPECT_EQ(format_capital(2.5e6), std::string("$2.50M"));
+    EXPECT_EQ(format_capital(4.4512e7), std::string("$44.5M"));
+    EXPECT_EQ(format_capital(2.07e8), std::string("$207M"));
+    EXPECT_EQ(format_capital(750.0), std::string("$750"));
+    EXPECT_EQ(format_capital(std::nan("")), std::string("-"));
 }
 
 TEST_CASE(TestAnalysis_VolTarget_SizesDownWhenVolatilityRises) {
