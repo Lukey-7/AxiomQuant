@@ -1,0 +1,400 @@
+=========================================================================
+   AXIOMQUANT - BACKTESTING, RISK, OPTIMIZATION & MONTE CARLO ENGINE      
+=========================================================================
+
+  - AAPL  : 1304 bars (2020-01-02 to 2024-12-31)
+  - AMZN  : 1304 bars (2020-01-02 to 2024-12-31)
+  - GOOGL : 1304 bars (2020-01-02 to 2024-12-31)
+  - MSFT  : 1304 bars (2020-01-02 to 2024-12-31)
+  - SPY   : 1304 bars (2020-01-02 to 2024-12-31)
+  Synchronized timeline: 1304 trading days across 5 assets (2020-01-02 to 2024-12-31)
+
+[2/9] SQLite persistence
+  Skipped (--no-db)
+
+[3/9] Technical indicators on SPY
+  Last bar:         2024-12-31   close $381.03
+  SMA(20)/SMA(50):  $375.06 / $352.95
+  RSI(14):          64.91   (overbought > 70, oversold < 30)
+  MACD(12,26,9):    line 8.73, signal 9.53, hist -0.80
+  Bollinger(20,2):  $355.88 / $375.06 / $394.23   (%B 0.66)
+  Realized vol 20d: 15.22 % annualized
+  ATR(14):          $6.77
+
+[4/9] Strategy tournament (identical costs, capital and fill rules)
+  Costs: $0.005/share (min $1.00) + 1 bp notional, 3 bp spread, 2 bp slippage, sqrt market impact
+  Fills: next bar open (no look-ahead)   Capital: $100000
+-------------------------------------------------------------------------------------------------------------------
+Strategy                                     Return    CAGR     Vol  Sharpe  Sortino    MaxDD   Fills  WinRate    Costs$
+-------------------------------------------------------------------------------------------------------------------
+BuyAndHold(SPY)                               18.3%    3.4%   18.3%    0.16     0.39    46.8%       1      n/a        67
+SMA_Crossover(SPY, 20/50)                     26.4%    4.8%   12.2%    0.27     0.66    26.0%      27    38.5%      2177
+RSI_MeanReversion(SPY, 14)                    -4.5%   -0.9%   11.1%   -0.20    -0.03    26.8%      10    60.0%       606
+CrossSectionalMomentum(L=60, R=20, Top=2)     13.0%    2.5%   20.7%    0.12     0.31    52.0%     165    61.4%      4577
+VolTarget(SPY, 10% vol, 20d)                   7.7%    1.5%   10.5%   -0.00     0.27    28.7%     203    44.1%      1050
+-------------------------------------------------------------------------------------------------------------------
+
+  Best active strategy by Sharpe: SMA_Crossover(SPY, 20/50)
+
+=========================================================================
+                      QUANT BACKTEST PERFORMANCE REPORT                  
+=========================================================================
+Strategy:       SMA_Crossover(SPY, 20/50)
+Period:         2020-01-02 -> 2024-12-31 (1304 bars, 5.00 yrs)
+Initial Cash:   $100000.00
+Final Equity:   $126401.44
+-------------------------------------------------------------------------
+ RETURN & GROWTH METRICS
+-------------------------------------------------------------------------
+  Total Return:                26.40 %
+  CAGR (Annualized Return):    4.80 %
+  Annualized Volatility:       12.17 %
+  Daily Volatility:            0.77 %
+  Market Exposure:             48.24 % of bars
+-------------------------------------------------------------------------
+ RISK-ADJUSTED RETURN METRICS
+-------------------------------------------------------------------------
+  Sharpe Ratio (Rf=2.0%):      0.269
+  Sortino Ratio (MAR=0%):      0.661
+  Calmar Ratio (CAGR/MaxDD):   0.185
+-------------------------------------------------------------------------
+ DRAWDOWN & TAIL RISK (95% Daily)
+-------------------------------------------------------------------------
+  Max Drawdown:                25.98 %
+  Longest Underwater Stretch:  1067 bars
+  Historical VaR (95%):        1.29 %
+  Historical CVaR / ES (95%):  1.73 %
+  Gaussian VaR (95%):          1.24 %
+  Cornish-Fisher VaR (95%):    1.29 %
+  Return Skewness:             0.484
+  Return Excess Kurtosis:      3.336
+-------------------------------------------------------------------------
+ TRADE STATISTICS (realized PnL of closing fills)
+-------------------------------------------------------------------------
+  Fills Executed:              27  (13 closing)
+  Win Rate:                    38.46 %
+  Profit Factor:               1.265
+  Avg PnL per Closed Trade:    $1087.61
+  Largest Win / Loss:          $47026.74 / $-9934.58
+  Commissions Paid:            $368.97
+  Total Transaction Costs:     $2176.91  (commission + slippage + spread)
+=========================================================================
+
+--- EQUITY CURVE ---
+    153607 |                                                            
+    148503 |        *****|  *|                                          
+    143398 |        |    |  |*|                                         
+    138293 |        |    ***| ***|                                      
+    133189 |       *|            |     *****|         *|         *|     
+    128084 |       |             ******|    *********|||    *****||     
+    122980 |       |                                 *||   *|     *|   *
+    117875 |       |                                   ****|       *|  |
+    112770 |     **|                                                ***|
+    107666 |     |                                                      
+    102561 |   *||                                                      
+     97457 |***|*|                                                      
+           +------------------------------------------------------------
+            Start: $100000                            End: $126401
+
+
+  COST OF LOOK-AHEAD - next-bar-open fills vs trading the signal bar's close
+  ----------------------------------------------------------------------------------------
+  Strategy                                       Sharpe   Sharpe(LA)    delta     Return   Return(LA)
+  ----------------------------------------------------------------------------------------
+  BuyAndHold(SPY)                                  0.16         0.16     0.01      18.3%        18.8%
+  SMA_Crossover(SPY, 20/50)                        0.27         0.22    -0.05      26.4%        22.6%
+  RSI_MeanReversion(SPY, 14)                      -0.20        -0.16     0.05      -4.5%        -1.6%
+  CrossSectionalMomentum(L=60, R=20, Top=2)        0.12         0.09    -0.03      13.0%         9.7%
+  VolTarget(SPY, 10% vol, 20d)                    -0.00         0.02     0.02       7.7%         8.8%
+  ----------------------------------------------------------------------------------------
+  (LA) fills at the close that generated the signal - information no live trader has.
+
+  COST SENSITIVITY - every cost component scaled by the same multiplier
+  ----------------------------------------------------------------------------------------
+  Strategy                                      0.0x    0.5x      1x      2x      5x     10x  Break-even
+  ----------------------------------------------------------------------------------------
+  BuyAndHold(SPY)                              18.3%   18.3%   18.3%   18.2%   18.0%   17.5%           -
+  SMA_Crossover(SPY, 20/50)                    28.5%   27.5%   26.4%   24.3%   18.2%    8.8%           -
+  RSI_MeanReversion(SPY, 14)                   -3.8%   -4.1%   -4.5%   -5.0%   -6.8%   -9.6%           -
+  CrossSectionalMomentum(L=60, R=20, Top=2)    16.8%   14.9%   13.0%    9.3%   -1.1%  -16.0%       4.69x
+  VolTarget(SPY, 10% vol, 20d)                  8.3%    8.1%    7.7%    6.4%    3.6%   -1.4%       8.60x
+  ----------------------------------------------------------------------------------------
+  Returns at each cost level; break-even is where the total return reaches zero.
+  A strategy that only works below 1x is not paying for its own trading.
+
+  CAPACITY - the same strategies and costs at larger account sizes
+  Impact 0.10 x sqrt(order / bar volume); each order takes at most 10.0% of a bar's volume, the rest waits
+  -----------------------------------------------------------------------------------------------------------------
+  Total return                                  $100k      $1M     $10M    $100M      $1B  Half-return   Break-even
+  -----------------------------------------------------------------------------------------------------------------
+  BuyAndHold(SPY)                               18.3%    18.2%    18.1%    17.5%    15.9%            -            -
+  SMA_Crossover(SPY, 20/50)                     26.4%    25.1%    20.9%     9.0%   -19.5%       $44.5M        $207M
+  RSI_MeanReversion(SPY, 14)                    -4.5%    -4.8%    -5.9%    -9.2%   -18.8%            -            -
+  CrossSectionalMomentum(L=60, R=20, Top=2)     13.0%    10.0%     1.1%   -21.0%   -57.7%       $2.49M       $11.3M
+  VolTarget(SPY, 10% vol, 20d)                   7.7%     7.7%     6.9%     4.5%    -2.4%        $125M        $450M
+  -----------------------------------------------------------------------------------------------------------------
+  Costs as % of starting capital
+  BuyAndHold(SPY)                                0.1%     0.1%     0.3%     0.7%     2.1%
+  SMA_Crossover(SPY, 20/50)                      2.2%     3.6%     7.8%    20.0%    49.6%
+  RSI_MeanReversion(SPY, 14)                     0.6%     1.0%     2.1%     5.6%    15.7%
+  CrossSectionalMomentum(L=60, R=20, Top=2)      4.6%     8.1%    18.7%    45.3%    79.9%
+  VolTarget(SPY, 10% vol, 20d)                   1.1%     1.3%     2.1%     4.5%    11.8%
+  Largest fill as % of its bar's volume
+  BuyAndHold(SPY)                               0.00%    0.00%    0.04%    0.45%    4.39%
+  SMA_Crossover(SPY, 20/50)                     0.00%    0.01%    0.08%    0.70%    6.02%
+  RSI_MeanReversion(SPY, 14)                    0.00%    0.01%    0.07%    0.69%    6.92%
+  CrossSectionalMomentum(L=60, R=20, Top=2)     0.00%    0.04%    0.42%    4.12%   10.00%
+  VolTarget(SPY, 10% vol, 20d)                  0.00%    0.00%    0.02%    0.21%    2.10%
+  -----------------------------------------------------------------------------------------------------------------
+  Half-return: account size at which the return falls to half the smallest account's. Break-even:
+  where it reaches zero. Both interpolate on a log scale; '-' means not reached in this range.
+
+[5/9] In-sample parameter sweep: SMA crossover on SPY
+  Rank  Fast/Slow    Sharpe   Return    MaxDD  Fills
+     1  40/50        0.44    41.1%    26.2%     33
+     2  30/50        0.41    39.1%    24.7%     27
+     3  5/50         0.27    26.7%    30.3%     41
+     4  20/50        0.27    26.4%    26.0%     27
+     5  10/50        0.22    22.3%    32.7%     35
+  Sharpe across the grid: best 0.44, median -0.56, worst -1.04
+  Pairs beating buy & hold (Sharpe 0.16): 5 / 41
+  NOTE: every number above is in-sample. The top pair is the luckiest pair on this
+        sample, not a forecast - the walk-forward test below is the honest one.
+
+  Deflated Sharpe ratio of the top pair (41 configurations tried, 15.6 effectively independent, 1303 days)
+    Sharpe 0.440   spread across the grid (std) 0.374   best expected from luck alone 0.669
+    P[true Sharpe > 0] = 0.842   P[true Sharpe > luck-adjusted hurdle] = 0.300
+
+[6/9] Walk-forward out-of-sample evaluation
+=========================================================================
+        WALK-FORWARD OUT-OF-SAMPLE EVALUATION: SMA CROSSOVER (SPY)
+=========================================================================
+Train 504 bars -> test 126 bars, rolled forward by the test length.
+Each fold picks (fast, slow) by in-sample Sharpe, then trades it unchanged on unseen data.
+-------------------------------------------------------------------------
+Fold  Test window               Params   IS Sharpe OOS Sharpe  OOS Ret  B&H Ret
+   1  2021-12-08..2022-06-01  30/50       1.249      0.118    1.34%    2.70%
+   2  2022-06-02..2022-11-24  30/100      0.264      0.000    0.00%  -10.77%
+   3  2022-11-25..2023-05-19  30/100      0.311      0.000    0.00%  -12.68%
+   4  2023-05-22..2023-11-13  30/100      0.031     -2.339  -12.03%   -0.94%
+   5  2023-11-14..2024-05-07  20/100     -0.270      0.000    0.00%   -2.96%
+   6  2024-05-08..2024-10-30  20/50      -0.280     -3.502  -12.64%  -12.31%
+-------------------------------------------------------------------------
+Stitched out-of-sample (750 trading days):
+  SMA (walk-forward):  return  -22.11 %   Sharpe -1.396   MaxDD  26.19 %
+  Buy & hold:          return  -32.55 %   Sharpe -0.753   MaxDD  39.36 %
+  Mean Sharpe: in-sample 0.217  ->  out-of-sample -0.954  (decay 1.171)
+  Folds where the strategy out-returned buy & hold: 3 / 6
+=========================================================================
+
+  ROBUSTNESS: the same protocol over other window sizes and both start modes (SPY)
+  ----------------------------------------------------------------------------------------
+  Train/test    Window start    Folds   OOS ret   B&H ret OOS Sharpe B&H Sharpe   Beat B&H
+  ----------------------------------------------------------------------------------------
+  504/126       flat                6    -22.1%    -32.5%      -1.40      -0.75        3/6
+  504/126       carried             6    -21.2%    -32.5%      -0.91      -0.75        3/6
+  252/63        flat               16    -17.1%    -33.9%      -0.86      -0.61       9/16
+  252/63        carried            16    -14.3%    -33.9%      -0.57      -0.61       9/16
+  756/189       flat                2     -5.8%    -14.7%      -0.48      -0.56        1/2
+  756/189       carried             2     -5.8%    -14.7%      -0.48      -0.56        1/2
+  ----------------------------------------------------------------------------------------
+  'flat' restarts every test window in cash; 'carried' lets the selected rule keep the
+  position it already implied. A conclusion that only holds in one row is not a conclusion.
+
+  IS THE OUT-OF-SAMPLE RESULT DISTINGUISHABLE FROM LUCK?
+  Stationary block bootstrap of the stitched out-of-sample returns
+  750 days, 1000 resamples, mean block length 2.3 days
+                        Sharpe      95% interval        p-value
+  SMA (walk-forward)    -1.396   [ -2.562,  -0.268]     0.986  (H0: Sharpe <= 0)
+  Buy & hold            -0.753   [ -1.856,   0.439]     0.896  (H0: Sharpe <= 0)
+  Difference            -0.643   [ -1.902,   0.531]     0.325  (H0: no difference)
+  Probabilistic Sharpe ratio (P[true Sharpe > 0]): 0.009
+
+  DOES THE BEST TOURNAMENT STRATEGY BEAT BUY & HOLD, GIVEN THAT ALL WERE TRIED?
+  4 strategies against buy & hold, 1303 days, 1000 resamples, mean block length 1.6 days
+  Strategy                                           Excess/yr    t-stat
+  SMA_Crossover(SPY, 20/50)                               0.4%      0.06  <- best
+  RSI_MeanReversion(SPY, 14)                             -5.2%     -0.82
+  CrossSectionalMomentum(L=60, R=20, Top=2)              -0.4%     -0.06
+  VolTarget(SPY, 10% vol, 20d)                           -2.9%     -0.80
+  White's Reality Check:  p = 0.776   (H0: no strategy beats buy & hold)
+  Hansen's SPA test:      p = 0.776   (consistent; lower 0.698, upper 0.776)
+
+[7/9] Regime breakdown and rolling performance
+  Regimes from SPY, using only data up to each day's close:
+    trend = sign of the trailing 200-day return;
+    volatility = 21-day realized vol against expanding-window terciles (after 252 observations).
+  The label at day t is applied to the return from t to t+1.
+  Bars: rising 422, falling 682, unknown 200  |  low vol 405, mid 310, high 317, unknown 272
+  --------------------------------------------------------------------------------------------------
+  Strategy / regime                            Days  Exposure    Return   Ann.ret   Sharpe    MaxDD
+  --------------------------------------------------------------------------------------------------
+  BuyAndHold(SPY)
+    All                                        1303    100.0%     18.3%      3.3%     0.16    46.8%
+    Rising                                      421    100.0%    -33.8%    -21.8%    -1.39    40.9%
+    Falling                                     682    100.0%      8.9%      3.2%     0.15    26.3%
+    Trend unknown                               200    100.0%     64.0%     86.5%     3.42     9.6%
+    Low vol                                     404    100.0%     12.4%      7.5%     0.39    16.4%
+    Mid vol                                     310    100.0%     -8.4%     -6.8%    -0.43    26.6%
+    High vol                                    317    100.0%    -27.5%    -22.6%    -1.33    40.2%
+    Vol unknown                                 272    100.0%     58.4%     53.1%     2.25     9.6%
+  SMA_Crossover(SPY, 20/50)
+    All                                        1303     48.3%     26.4%      4.6%     0.27    26.0%
+    Rising                                      421     58.9%    -24.3%    -15.3%    -1.31    25.5%
+    Falling                                     682     35.3%     10.2%      3.7%     0.21    18.3%
+    Trend unknown                               200     70.0%     51.4%     68.7%     3.42     5.7%
+    Low vol                                     404     51.5%     -6.5%     -4.1%    -0.46    17.3%
+    Mid vol                                     310     29.7%      3.7%      3.0%     0.15     9.2%
+    High vol                                    317     40.1%     -5.8%     -4.7%    -0.53    21.4%
+    Vol unknown                                 272     74.3%     38.5%     35.2%     1.86     9.9%
+  RSI_MeanReversion(SPY, 14)
+    All                                        1303     38.0%     -4.5%     -0.9%    -0.20    26.8%
+    Rising                                      421      3.6%     -5.9%     -3.6%    -1.66     6.4%
+    Falling                                     682     66.6%     -8.8%     -3.4%    -0.30    21.9%
+    Trend unknown                               200     13.0%     11.4%     14.5%     1.84     2.8%
+    Low vol                                     404     27.0%     13.0%      7.9%     0.63    10.3%
+    Mid vol                                     310     53.2%      5.5%      4.5%     0.25    10.3%
+    High vol                                    317     61.5%    -28.0%    -23.0%    -1.90    32.0%
+    Vol unknown                                 272      9.6%     11.4%     10.5%     1.48     2.8%
+  CrossSectionalMomentum(L=60, R=20, Top=2)
+    All                                        1303     95.4%     13.0%      2.4%     0.12    52.0%
+    Rising                                      421    100.0%    -30.4%    -19.5%    -0.98    49.4%
+    Falling                                     682    100.0%     20.2%      7.0%     0.33    33.5%
+    Trend unknown                               200     70.0%     35.0%     46.0%     2.18     5.4%
+    Low vol                                     404    100.0%     -5.4%     -3.4%    -0.17    28.2%
+    Mid vol                                     310    100.0%      8.6%      6.9%     0.33    21.8%
+    High vol                                    317    100.0%    -20.0%    -16.2%    -0.78    42.2%
+    Vol unknown                                 272     77.9%     37.4%     34.2%     1.53    10.6%
+  VolTarget(SPY, 10% vol, 20d)
+    All                                        1303     98.5%      7.7%      1.4%    -0.00    28.7%
+    Rising                                      421    100.0%    -21.4%    -13.4%    -1.51    26.7%
+    Falling                                     682    100.0%      8.8%      3.2%     0.16    14.0%
+    Trend unknown                               200     90.0%     25.9%     33.7%     2.68     8.1%
+    Low vol                                     404    100.0%      7.9%      4.9%     0.29    10.9%
+    Mid vol                                     310    100.0%     -4.6%     -3.7%    -0.54    15.5%
+    High vol                                    317    100.0%    -15.2%    -12.3%    -1.56    22.5%
+    Vol unknown                                 272     92.6%     23.3%     21.5%     1.71     8.1%
+  --------------------------------------------------------------------------------------------------
+  Return is compounded over the regime's days only; MaxDD is of that stitched curve.
+
+  ROLLING 252-DAY SHARPE
+  --------------------------------------------------------------------------------------------------
+  Strategy                                   Windows     Min  Median     Max    Last     > 0   > B&H
+  --------------------------------------------------------------------------------------------------
+  BuyAndHold(SPY)                               1052   -2.02   -0.55    3.00   -0.48     29%       -
+  SMA_Crossover(SPY, 20/50)                     1052   -1.85   -0.41    2.37   -0.63     28%     55%
+  RSI_MeanReversion(SPY, 14)                    1052  -39.04   -0.36    1.68    0.17     23%     59%
+  CrossSectionalMomentum(L=60, R=20, Top=2)     1052   -2.21   -0.30    2.11   -0.90     41%     49%
+  VolTarget(SPY, 10% vol, 20d)                  1052   -1.90   -0.54    2.67   -0.55     25%     37%
+  --------------------------------------------------------------------------------------------------
+  '> B&H' is the share of windows where the strategy's Sharpe beat the first row's. A window
+  spent mostly in cash has almost no volatility, so its Sharpe can be extreme.
+
+[8/9] Markowitz mean-variance optimization
+  Ledoit-Wolf shrinkage towards constant correlation: delta = 1.0000
+========================================================================================================
+                               MARKOWITZ PORTFOLIO OPTIMIZATION REPORT                                  
+========================================================================================================
+Asset              GMV (Uncon)  Tangency (Uncon)   GMV (Long-Only) Max Sharpe (Long)       Risk Parity
+--------------------------------------------------------------------------------------------------------
+AAPL                     8.90%           249.99%            18.09%            40.00%            18.84%
+AMZN                    -4.59%           -90.40%             0.78%             0.00%            16.31%
+GOOGL                    6.66%            70.45%            15.24%            40.00%            18.46%
+MSFT                    15.04%           -95.09%            25.89%             0.00%            19.80%
+SPY                     74.00%           -34.95%            40.00%            20.00%            26.58%
+--------------------------------------------------------------------------------------------------------
+Exp Return               6.40%            43.74%             7.76%            12.30%             7.83%
+Volatility              17.72%            54.59%            18.56%            20.96%            19.58%
+Sharpe (2%)              0.248             0.765             0.310             0.491             0.298
+========================================================================================================
+
+--- ASCII EFFICIENT FRONTIER ---
+Return (%)
+  12.5% |                                                            
+  12.1% |                                                        T   
+  11.6% |                                           .                
+  11.2% |                      .   .                                 
+  10.7% |                .    .                                      
+  10.3% |                                                            
+   9.8% |         .                                                  
+   9.3% |                                                            
+   8.9% |      .                                                     
+   8.4% |   ..                                                       
+   8.0% |  ..                                                        
+   7.5% |  G                                                         
+       +------------------------------------------------------------
+          18.4%                                          21.1% Volatility
+Legend: [.] Frontier   [G] Global Min Variance   [T] Max Sharpe Tangency
+
+
+[9/9] Monte Carlo simulation
+  [A] Bootstrapped daily returns of SMA_Crossover(SPY, 20/50)
+=========================================================================
+                   MONTE CARLO RISK & TAIL REPORT                        
+=========================================================================
+Model:               Empirical bootstrap (i.i.d. resampling)
+Paths Simulated:     2000 paths
+Horizon:             252 trading days (1.00 yrs)
+Initial Capital:     $100000.00
+-------------------------------------------------------------------------
+ TERMINAL WEALTH DISTRIBUTION
+-------------------------------------------------------------------------
+  Expected (Mean):     $105768.21 (5.77 %)
+  Median (50th %ile):  $105329.35 (5.33 %)
+  Std Deviation:       $12846.43
+  99th Percentile:     $138310.83 (38.31 %)
+  95th Percentile:     $128024.56 (28.02 %)
+  75th Percentile:     $113991.31 (13.99 %)
+  25th Percentile:     $96629.10 (-3.37 %)
+  5th Percentile:      $85950.09 (-14.05 %)
+  1st Percentile:      $78812.05 (-21.19 %)
+-------------------------------------------------------------------------
+ TAIL LOSS & DRAWDOWN PROBABILITIES
+-------------------------------------------------------------------------
+  Probability of Capital Loss:    34.70 %
+  Probability of > 10% Loss:      10.20 %
+  Probability of > 20% Loss:      1.50 %
+  Median Max Drawdown:            10.57 %
+  95th %ile Max Drawdown:         19.95 %
+  99th %ile Max Drawdown:         24.02 %
+  Terminal 95% VaR:               14.05 %
+  Terminal 95% CVaR (ES):         18.45 %
+=========================================================================
+
+  [B] Correlated GBM of the constrained max-Sharpe portfolio
+=========================================================================
+                   MONTE CARLO RISK & TAIL REPORT                        
+=========================================================================
+Model:               Correlated multi-asset GBM (Cholesky, buy-and-hold)
+Paths Simulated:     2000 paths
+Horizon:             252 trading days (1.00 yrs)
+Initial Capital:     $100000.00
+-------------------------------------------------------------------------
+ TERMINAL WEALTH DISTRIBUTION
+-------------------------------------------------------------------------
+  Expected (Mean):     $112820.71 (12.82 %)
+  Median (50th %ile):  $110583.67 (10.58 %)
+  Std Deviation:       $24113.63
+  99th Percentile:     $178065.95 (78.07 %)
+  95th Percentile:     $156560.34 (56.56 %)
+  75th Percentile:     $127416.61 (27.42 %)
+  25th Percentile:     $95268.86 (-4.73 %)
+  5th Percentile:      $78208.96 (-21.79 %)
+  1st Percentile:      $69435.86 (-30.56 %)
+-------------------------------------------------------------------------
+ TAIL LOSS & DRAWDOWN PROBABILITIES
+-------------------------------------------------------------------------
+  Probability of Capital Loss:    32.30 %
+  Probability of > 10% Loss:      17.50 %
+  Probability of > 20% Loss:      6.70 %
+  Median Max Drawdown:            17.69 %
+  95th %ile Max Drawdown:         32.59 %
+  99th %ile Max Drawdown:         38.98 %
+  Terminal 95% VaR:               21.79 %
+  Terminal 95% CVaR (ES):         27.89 %
+=========================================================================
+
+
+=========================================================================
+                          PIPELINE COMPLETE                              
+=========================================================================
