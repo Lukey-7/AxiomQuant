@@ -5,7 +5,7 @@
 # sanitizer job) without needing libFuzzer.
 #
 # With -DAXIOM_BUILD_FUZZERS=ON and Clang, fuzz_csv_loader is the real coverage-guided libFuzzer binary:
-#   ./build/bin/fuzz_csv_loader -max_total_time=120 tests/fuzz/corpus sample_data
+#   ./build/bin/fuzz_csv_loader -max_total_time=120 -max_len=4096 tests/fuzz/corpus
 
 add_executable(fuzz_csv_loader_replay fuzz_csv_loader.cpp standalone_driver.cpp)
 target_link_libraries(fuzz_csv_loader_replay PRIVATE quant_data)

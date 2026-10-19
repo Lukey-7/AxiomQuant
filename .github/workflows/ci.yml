@@ -135,10 +135,12 @@ jobs:
           cmake --build build --target fuzz_csv_loader --parallel
       - name: Fuzz for three minutes
         run: |
-          # The first directory collects new coverage; the others are read-only seeds.
+          # fuzz-corpus collects new coverage; tests/fuzz/corpus holds the small read-only seeds. The
+          # 1,300-row sample files are left out and inputs capped at 4 KB: a few rows already reach
+          # every branch of the row parser, and large inputs cut throughput to a few dozen runs a second.
           mkdir -p fuzz-corpus fuzz-artifacts
-          ./build/bin/fuzz_csv_loader -max_total_time=180 -print_final_stats=1 \
-            -artifact_prefix=fuzz-artifacts/ fuzz-corpus tests/fuzz/corpus sample_data
+          ./build/bin/fuzz_csv_loader -max_total_time=180 -max_len=4096 -print_final_stats=1 \
+            -artifact_prefix=fuzz-artifacts/ fuzz-corpus tests/fuzz/corpus
       - name: Upload crashing inputs
         if: failure()
         uses: actions/upload-artifact@v7
