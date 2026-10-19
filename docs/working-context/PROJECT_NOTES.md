@@ -47,9 +47,11 @@ Repo: `github.com/Lukey-7/AxiomQuant` (public) · owner account: **Lukey-7**
 *Benchmark vs NumPy*, *clang-format and clang-tidy* and *Test coverage* (80% line floor, currently
 86%) jobs.
 
-Branch `feat/realism-capacity-tests` (19 Oct 2026, not yet merged) brings the suite to **89 tests**
-plus three more CTest entries (CLI end to end, golden output, fuzz replay) and adds the *Fuzz the
-CSV loader* job; it was green locally (MSYS2 GCC) before its first push, CI still to confirm. Reference run for every
+Since 19 Oct 2026 (`feat/realism-capacity-tests`, merged to `main` as `82c835e`, CI run
+39221048512 green on every job) the suite is **89 tests** plus three more CTest entries (CLI end to
+end, golden output, fuzz replay), and the *Fuzz the CSV loader* job runs about 940,000 inputs in
+three minutes. Capacity figures in RESEARCH.md and `capacity.svg` come from *Real data* run
+**39221101387** (commit `82c835e`, fresh Yahoo download to 2026-10-16). Reference run for every
 number in RESEARCH.md and the README charts: **35057670453** (workflow *Real data*, job *Fetch and
 analyse real prices*, `ubuntu-latest`, 4 threads; Yahoo bars 2015-01-02 to 2026-09-14). The README's
 *Sample output* section still quotes synthetic-data run **34671037291** (job *Linux (GCC)*).
@@ -141,8 +143,8 @@ needs no key but is an unofficial API. The Kaggle path was verified with `camnug
 7. ~~Fairer walk-forward~~ - done (`carry_position`, `sweep_walk_forward`; RESEARCH.md section 3).
 8. ~~Data-driven significance settings~~ - done (Politis-White block length, `effective_trials`).
 9. ~~Execution realism, capacity, golden tests, fuzzing~~ - done on `feat/realism-capacity-tests`
-   (backlog items 5, 6, 9, 10 below). Follow-up: quote the capacity table and capacity.svg from a
-   named *Real data* run in RESEARCH.md, and try the participation cap on the S&P 500 study.
+   (backlog items 5, 6, 9, 10 below); capacity quoted from run 39221101387. Follow-up: try the
+   participation cap on the S&P 500 study.
 10. Remaining ideas: cluster-based effective trials, a longer history (from 2000) covering a decade
    that was bad for buy-and-hold, and intraday or higher-frequency data.
 
@@ -217,7 +219,7 @@ count and costs should rise and its return fall; the cost-sensitivity table gain
 
 **6. ~~Capacity analysis.~~** Done: `analysis/capacity.*`, CLI table after cost sensitivity,
 `capacity.csv`, `capacity.svg` in `make_charts.py`; the sweep uses a 10% participation cap unless
-`--max-participation` is set. Results still need quoting from a named real-data run. Original entry:
+`--max-participation` is set. Quoted from run 39221101387 in RESEARCH.md section 2. Original entry:
 *What:* rerun a strategy at increasing account sizes ($100k to $1B) and plot return against capital.
 *Why:* answers "at what size does this stop working?", which is the question a desk actually asks,
 and the square-root impact model already in `execution_model.hpp` makes it nearly free to compute.

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="900" height="460">
+<rect width="900" height="460" fill="#ffffff"/>
+<text x="30.0" y="26.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="17" fill="#1f2328" text-anchor="start" font-weight="600">Capacity: total return against account size</text>
+<text x="30.0" y="44.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="start" font-weight="normal">same strategies and costs; square-root impact, orders capped at a share of bar volume</text>
+<line x1="78" y1="398.0" x2="874" y2="398.0" stroke="#e4e8ec"/>
+<text x="68.0" y="402.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">-82%</text>
+<line x1="78" y1="340.3" x2="874" y2="340.3" stroke="#e4e8ec"/>
+<text x="68.0" y="344.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">+110%</text>
+<line x1="78" y1="282.7" x2="874" y2="282.7" stroke="#e4e8ec"/>
+<text x="68.0" y="286.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">+301%</text>
+<line x1="78" y1="225.0" x2="874" y2="225.0" stroke="#e4e8ec"/>
+<text x="68.0" y="229.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">+493%</text>
+<line x1="78" y1="167.3" x2="874" y2="167.3" stroke="#e4e8ec"/>
+<text x="68.0" y="171.3" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">+685%</text>
+<line x1="78" y1="109.7" x2="874" y2="109.7" stroke="#e4e8ec"/>
+<text x="68.0" y="113.7" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">+877%</text>
+<line x1="78" y1="52.0" x2="874" y2="52.0" stroke="#e4e8ec"/>
+<text x="68.0" y="56.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="end" font-weight="normal">+1069%</text>
+<line x1="78" y1="373.3" x2="874" y2="373.3" stroke="#656d76"/>
+<text x="78.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="middle" font-weight="normal">$100k</text>
+<text x="277.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="middle" font-weight="normal">$1M</text>
+<text x="476.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="middle" font-weight="normal">$10M</text>
+<text x="675.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="middle" font-weight="normal">$100M</text>
+<text x="874.0" y="422.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#656d76" text-anchor="middle" font-weight="normal">$1B</text>
+<polyline points="78.0,268.8 277.0,268.7 476.0,268.7 675.0,268.8 874.0,270.0" fill="none" stroke="#2563eb" stroke-width="2"/>
+<circle cx="78.0" cy="268.8" r="3" fill="#2563eb"/>
+<circle cx="277.0" cy="268.7" r="3" fill="#2563eb"/>
+<circle cx="476.0" cy="268.7" r="3" fill="#2563eb"/>
+<circle cx="675.0" cy="268.8" r="3" fill="#2563eb"/>
+<circle cx="874.0" cy="270.0" r="3" fill="#2563eb"/>
+<polyline points="78.0,329.6 277.0,331.4 476.0,336.7 675.0,350.2 874.0,374.1" fill="none" stroke="#16a34a" stroke-width="2"/>
+<circle cx="78.0" cy="329.6" r="3" fill="#16a34a"/>
+<circle cx="277.0" cy="331.4" r="3" fill="#16a34a"/>
+<circle cx="476.0" cy="336.7" r="3" fill="#16a34a"/>
+<circle cx="675.0" cy="350.2" r="3" fill="#16a34a"/>
+<circle cx="874.0" cy="374.1" r="3" fill="#16a34a"/>
+<polyline points="78.0,334.1 277.0,334.7 476.0,336.9 675.0,343.3 874.0,358.5" fill="none" stroke="#dc2626" stroke-width="2"/>
+<circle cx="78.0" cy="334.1" r="3" fill="#dc2626"/>
+<circle cx="277.0" cy="334.7" r="3" fill="#dc2626"/>
+<circle cx="476.0" cy="336.9" r="3" fill="#dc2626"/>
+<circle cx="675.0" cy="343.3" r="3" fill="#dc2626"/>
+<circle cx="874.0" cy="358.5" r="3" fill="#dc2626"/>
+<polyline points="78.0,75.9 277.0,106.2 476.0,179.6 675.0,293.1 874.0,364.4" fill="none" stroke="#9333ea" stroke-width="2"/>
+<circle cx="78.0" cy="75.9" r="3" fill="#9333ea"/>
+<circle cx="277.0" cy="106.2" r="3" fill="#9333ea"/>
+<circle cx="476.0" cy="179.6" r="3" fill="#9333ea"/>
+<circle cx="675.0" cy="293.1" r="3" fill="#9333ea"/>
+<circle cx="874.0" cy="364.4" r="3" fill="#9333ea"/>
+<polyline points="78.0,320.9 277.0,320.6 476.0,322.3 675.0,327.4 874.0,340.5" fill="none" stroke="#ea580c" stroke-width="2"/>
+<circle cx="78.0" cy="320.9" r="3" fill="#ea580c"/>
+<circle cx="277.0" cy="320.6" r="3" fill="#ea580c"/>
+<circle cx="476.0" cy="322.3" r="3" fill="#ea580c"/>
+<circle cx="675.0" cy="327.4" r="3" fill="#ea580c"/>
+<circle cx="874.0" cy="340.5" r="3" fill="#ea580c"/>
+<rect x="78" y="433" width="11" height="11" rx="2" fill="#2563eb"/>
+<text x="95.0" y="442.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#1f2328" text-anchor="start" font-weight="normal">BuyAndHold</text>
+<rect x="168.0" y="433" width="11" height="11" rx="2" fill="#16a34a"/>
+<text x="185.0" y="442.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#1f2328" text-anchor="start" font-weight="normal">SMA_Crossover</text>
+<rect x="279.0" y="433" width="11" height="11" rx="2" fill="#dc2626"/>
+<text x="296.0" y="442.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#1f2328" text-anchor="start" font-weight="normal">RSI_MeanReversion</text>
+<rect x="418.0" y="433" width="11" height="11" rx="2" fill="#9333ea"/>
+<text x="435.0" y="442.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#1f2328" text-anchor="start" font-weight="normal">CrossSectionalMomentum</text>
+<rect x="592.0" y="433" width="11" height="11" rx="2" fill="#ea580c"/>
+<text x="609.0" y="442.0" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="12" fill="#1f2328" text-anchor="start" font-weight="normal">VolTarget</text>
+</svg>

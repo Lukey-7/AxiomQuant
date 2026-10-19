@@ -73,6 +73,13 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 ![In-sample SMA parameter sweep](docs/images/parameter_sweep.svg)
 
+The same strategies at account sizes from $100k to $1B, with square-root impact and each order
+capped at 10% of a day's volume. Momentum's return halves by $25M; buy-and-hold barely moves
+([run 39221101387](https://github.com/Lukey-7/AxiomQuant/actions/runs/39221101387); RESEARCH.md
+section 2).
+
+![Capacity: total return against account size](docs/images/capacity.svg)
+
 <details>
 <summary>Equity curves and the constrained efficient frontier</summary>
 
@@ -82,7 +89,7 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 </details>
 
-Charts come from [Real data run 35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453)
+The other charts come from [Real data run 35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453)
 (SPY, AAPL, AMZN, GOOGL, MSFT, 2015-01-02 to 2026-09-14). They are generated from the CLI's own CSV
 exports by `scripts/make_charts.py`, which uses only the Python standard library:
 

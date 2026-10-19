@@ -106,6 +106,32 @@ Nothing here breaks even inside 10x, because the underlying assets rose enough t
 That is a statement about a bull market in mega-caps, not about the strategies: the ranking is
 unchanged at every cost level, and buy-and-hold leads at all of them.
 
+**At what account size do the strategies stop working?** Scaling every cost by a constant leaves out
+the cost that depends on size: square-root market impact grows with the order's share of the day's
+volume, and no desk takes more than a slice of it. The capacity sweep re-runs each strategy at $100k
+to $1B with each order capped at 10% of its bar's volume (the rest waits for the next bar). These
+figures come from a later run on a fresh download,
+[run 39221101387](https://github.com/Lukey-7/AxiomQuant/actions/runs/39221101387) (workflow *Real
+data*, `ubuntu-latest`, 4 threads, commit `82c835e`, 2,965 bars to 2026-10-16), so its $100k column
+differs slightly from the tables above:
+
+| Strategy | $100k | $1M | $10M | $100M | $1B | Return halves at | Break-even at |
+|---|---|---|---|---|---|---|---|
+| BuyAndHold(SPY) | 347.4% | 347.9% | 347.8% | 347.4% | 343.5% | - | - |
+| SMA_Crossover(SPY, 20/50) | 145.2% | 139.3% | 121.6% | 76.5% | −2.9% | $112M | $918M |
+| RSI_MeanReversion(SPY, 14) | 130.3% | 128.1% | 120.9% | 99.8% | 48.9% | $480M | - |
+| CrossSectionalMomentum | 989.4% | 888.6% | 644.2% | 266.6% | 29.3% | **$24.9M** | - |
+| VolTarget(SPY, 10% vol, 20d) | 174.2% | 175.1% | 169.5% | 152.7% | 109.0% | - | - |
+
+![Capacity](docs/images/capacity.svg)
+
+Turnover decides capacity. Buy-and-hold trades once and barely notices $1B (its largest fill is 3.4%
+of a day's SPY volume). Momentum, the in-sample star, loses half its return by $25M. Its costs
+reach 45% of starting capital at $100k and 280% at $1B, and its orders hit the 10% volume cap at
+$1B. The SMA crossover goes negative just under $1B, in SPY, the most liquid instrument there is.
+Volatility targeting keeps most of its return to $100M because its rebalances are small changes in
+weight rather than full entries and exits.
+
 **Cost of look-ahead.** Re-running each strategy with fills at the signal bar's close changes Sharpe
 by at most 0.03 (SMA 0.58 → 0.56, RSI 0.45 → 0.42, momentum 0.88 → 0.89). With daily signals on
 liquid large caps, the overnight gap is a small part of the result; the protocol matters more.
