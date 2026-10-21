@@ -53,8 +53,9 @@ Full write-ups: **[RESEARCH.md](RESEARCH.md)** ·
 **[Quant From Zero — a guide for beginners](docs/guide/quant-from-zero/QUANT_FROM_ZERO.md)**
 ([PDF](docs/guide/quant-from-zero/Quant-From-Zero.pdf))
 
-79 unit and regression tests run on Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under
-AddressSanitizer + UndefinedBehaviorSanitizer on every push. Two further jobs check the engine against
+89 unit and regression tests, a golden-output check of the full CLI run and a CSV fuzz replay run on
+Linux (GCC), macOS (Apple Clang), Windows (MSVC) and under AddressSanitizer +
+UndefinedBehaviorSanitizer on every push, and the CSV loader is fuzzed with libFuzzer for three minutes. Two further jobs check the engine against
 outside references: every optimizer against cvxpy/Clarabel and closed-form solutions to 1e-8, and the
 Monte Carlo and bootstrap workloads against vectorised NumPy implementations of the same tasks.
 Formatting, static analysis and an 80% line-coverage floor are enforced on every push as well.
@@ -62,6 +63,11 @@ Formatting, static analysis and an 80% line-coverage floor are enforced on every
 ---
 
 ## Results at a glance
+
+Every chart below is drawn by `scripts/make_charts.py` from the CLI's own CSV exports, on real daily
+prices for SPY, AAPL, AMZN, GOOGL and MSFT. The run behind each one is named under it.
+
+### 1. In sample vs out of sample
 
 Parameters chosen on a training window, then traded unchanged on the next unseen window. The blue
 bars are what the optimizer believed; the darker bars are what happened next.
@@ -73,30 +79,78 @@ Every pair in an in-sample parameter sweep. The best cell is the one the optimiz
 
 ![In-sample SMA parameter sweep](docs/images/parameter_sweep.svg)
 
-The same strategies at account sizes from $100k to $1B, with square-root impact and each order
-capped at 10% of a day's volume. Momentum's return halves by $25M; buy-and-hold barely moves
-([run 39221101387](https://github.com/Lukey-7/AxiomQuant/actions/runs/39221101387); RESEARCH.md
-section 2).
+*Both from [Real data run 35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453)
+(2015-01-02 to 2026-09-14).*
 
-![Capacity: total return against account size](docs/images/capacity.svg)
+### 2. Equity curves and the efficient frontier
 
-<details>
-<summary>Equity curves and the constrained efficient frontier</summary>
+All five strategies with identical costs, capital and fill rules, and the long-only frontier with a
+40% cap per asset.
 
 ![Equity curves](docs/images/equity_curves.svg)
 
 ![Constrained efficient frontier](docs/images/efficient_frontier.svg)
 
-</details>
+*Both from [Real data run 35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453).*
 
-The other charts come from [Real data run 35057670453](https://github.com/Lukey-7/AxiomQuant/actions/runs/35057670453)
-(SPY, AAPL, AMZN, GOOGL, MSFT, 2015-01-02 to 2026-09-14). They are generated from the CLI's own CSV
-exports by `scripts/make_charts.py`, which uses only the Python standard library:
+### 3. When does a strategy work? Rolling Sharpe by regime
+
+A rolling one-year Sharpe ratio for each strategy, with falling-trend periods (trailing 200-day
+benchmark return below zero) shaded. One number for 11.7 years hides that the trend rule and the
+mean-reversion rule take turns.
+
+![Rolling 252-day Sharpe with falling-trend periods shaded](docs/images/rolling_sharpe.svg)
+
+### 4. How big can the account get? Capacity
+
+The same strategies at account sizes from $100k to $1B, with square-root market impact and each
+order capped at 10% of a day's volume. Momentum's return halves by $25M; the SMA crossover breaks
+even just under $1B; buy-and-hold barely moves. The table is in RESEARCH.md section 2.
+
+![Capacity: total return against account size](docs/images/capacity.svg)
+
+*Sections 3 and 4 from [Real data run 39221101387](https://github.com/Lukey-7/AxiomQuant/actions/runs/39221101387)
+(2015-01-02 to 2026-10-16).*
+
+### 5. Speed against NumPy
+
+Throughput of the Monte Carlo and bootstrap workloads relative to vectorised NumPy implementations of
+the same tasks; the table is under [Performance](#performance).
+
+![Throughput relative to vectorised NumPy](docs/images/benchmark.svg)
+
+To redraw the charts from any run:
 
 ```bash
 ./build/bin/axiomquant --data sample_data --no-db --export-dir out
 python3 scripts/make_charts.py --input out --output docs/images
 ```
+
+---
+
+## How the project grew
+
+In the order it was built, from the commit history.
+
+| Stage | What was added | Why it mattered |
+|---|---|---|
+| 1. Core engine | Event-driven backtester with next-bar-open fills, realized-PnL trade statistics, deterministic Monte Carlo, correlated GBM, Ledoit-Wolf covariance, exact simplex projection | Removed the look-ahead fills and order-sizing bugs that make most toy backtests lie |
+| 2. Walk-forward | Rolling train/test evaluation and parallel parameter sweeps | Turned "best in-sample Sharpe" into an out-of-sample test |
+| 3. Real data | Live Yahoo/Tiingo, Kaggle and CSV import, synthetic generator; a *Real data* workflow | Every published number comes from a named CI run on real prices |
+| 4. Significance | Block-bootstrap Sharpe intervals, probabilistic and deflated Sharpe, Politis-White block length, effective trial count | Gave the headline result an error bar, which shows it is indistinguishable from zero |
+| 5. Outside references | Optimizer cross-checked against cvxpy/Clarabel, Monte Carlo and bootstrap benchmarked against NumPy | Found and fixed a real risk-parity bug |
+| 6. Engineering hygiene | clang-format, clang-tidy, 80% coverage floor, ASan + UBSan build | Static and dynamic checks on every push |
+| 7. Costs and sizing | Cost-sensitivity sweep, volatility-targeted sizing | Volatility targeting: buy-and-hold's Sharpe with 13.2% drawdown instead of 33.4% |
+| 8. Point-in-time universe | Index membership calendar and an S&P 500 study | Measured survivorship bias: momentum +957.7% on five names, +106.6% on the real index |
+| 9. Fairer protocol | Walk-forward that can carry the position into each window, swept over window sizes | Showed the conclusion does not depend on one test setup |
+| 10. Multiple testing | White's Reality Check and Hansen's SPA test | Charges for trying several strategies at once |
+| 11. Regimes | Point-in-time trend/volatility labels, per-regime metrics, rolling Sharpe | Explained *when* each rule works |
+| 12. Python bindings | pybind11 module `axiomquant`, cross-checked against the CLI | Usable from a notebook |
+| 13. Faster Monte Carlo | Correlated GBM in blocks of 8 paths, bit-identical to the reference | Removed the one slow stage of the pipeline |
+| 14. CSV fuzzing | libFuzzer target under ASan/UBSan plus a replay driver in every build | Found duplicate dates, infinite prices, negative volume, impossible dates and "1,000.5" read as 1.0, all fixed |
+| 15. Execution realism | Optional volume-participation cap with carried remainders, short borrow fee | Orders no longer assume infinite liquidity when the cap is on |
+| 16. Capacity | Same strategies from $100k to $1B, with half-return and break-even sizes | Answers "at what size does this stop working?" |
+| 17. Golden output | The CLI's full output pinned in `tests/golden`, compared to the last printed digit | Any unintended change to a number fails CI |
 
 ---
 
@@ -419,8 +473,6 @@ Timings on their own say nothing, so every workload here is also implemented in 
 (`scripts/benchmark.py`, run in CI) and the two are timed on the same machine, on the same inputs,
 computing the same statistics. Both implementations print their result so the comparison can be
 checked, not assumed.
-
-![Throughput relative to vectorised NumPy](docs/images/benchmark.svg)
 
 From CI run [38026764215](https://github.com/Lukey-7/AxiomQuant/actions/runs/38026764215), job
 *Benchmark vs NumPy*, `ubuntu-latest` (4 vCPU), GCC 13.3 Release with OpenMP, NumPy 2.5.3,
